@@ -1,0 +1,19 @@
+{
+  "files.associations": {
+    "*.m": "matlab",
+    "*.cu": "c",
+    "vector": "cpp",
+    "xstring": "cpp",
+    "xutility": "cpp",
+    "string": "cpp",
+    "tuple": "cpp",
+    "utility": "cpp",
+    "xtr1common": "cpp",
+    "memory": "cpp",
+    "type_traits": "cpp",
+    "xmemory0": "cpp",
+    "deque": "cpp",
+    "initializer_list": "cpp",
+    "queue": "cpp"
+  }
+}

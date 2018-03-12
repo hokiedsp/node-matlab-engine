@@ -1,0 +1,33 @@
+{
+  "name": "electron-cmake-js-quick-start",
+  "version": "1.0.0",
+  "description": "A minimal Electron application with C++ addon",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "install": "cmake-js compile"
+  },
+  "repository": "https://github.com/electron/electron-quick-start",
+  "keywords": [
+    "Electron",
+    "quick",
+    "start",
+    "tutorial",
+    "demo",
+    "cmake-js",
+    "c/c++ addon"
+  ],
+  "devDependencies": {
+    "cmake-js": "^3.6.2",
+    "electron": "~1.8.2"
+  },
+  "dependencies": {
+    "nan": "^2.9.2",
+    "bindings": "^1.3.0"
+  },
+  "cmake-js": {
+    "runtime": "electron",
+    "runtimeVersion": "1.8.2",
+    "arch": "x64"
+  }
+}
