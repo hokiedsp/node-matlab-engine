@@ -26,8 +26,8 @@
     "bindings": "^1.3.0"
   },
   "cmake-js": {
-    "runtime": "electron",
-    "runtimeVersion": "1.8.2",
+    "runtime": "node",
+    "runtimeVersion": "9.4.0",
     "arch": "x64"
   }
 }
