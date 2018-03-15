@@ -99,7 +99,7 @@ NAN_METHOD(MatlabEngine4NodeJS::GetVariable)
   }
   else if (mxIsChar(val))
   {
-    info.GetReturnValue().Set(Nan::New((const uint16_t *)mxGetChars(val))); // UTF-16
+    info.GetReturnValue().Set(Nan::New(v8::String::NewFromTwoByte(mxGetChars(val)))); // pass UTF-16
   }
   else if (mxIsLogical(val))
   {
