@@ -1,37 +1,102 @@
 #.rst:
 # FindNodeJS
 # -------
-# Find NodeJS and its native APIs
+# Find Node.js and its native APIs
 #
-# Optional COMPONENTS are
-#    NODE_RUNTIME      << default if no RUNTIME component specified
-#    ELECTRON_RUNTIME
-#    IOJS_RUNTIME
-#    NW_RUNTIME
-#    NAN_LIBRARY
-#    NAPI_LIBRARY
+# The module supports the following components:
 #
-# the Electron include and library
-# This module defines
-# NLOPT_INCLUDE_DIR, where to find nlopt.h
-# NLOPT_LIBRARY, the library to link against to use NLopt.
-# NLOPT_SHAREDLIBRARY
-# NLOPT_FOUND, If false, do not try to use NLopt.
-# NLOPT_ROOT, if this module use this path to find NLopt header
-# and libraries.
+#    NODE_RUNTIME     - Node.js runtime (default)
+#    ELECTRON_RUNTIME - Electron runtime
+#    NW_RUNTIME       - Webpack runtime
+#    NAN              - nan module: Native Abstractions for Node.js 
+#    NAPI             - node-addon-api module: N-API
 #
-# In Windows, it looks for NLOPT_DIR environment variable if defined
+# Only 1 Runtime Component (NODE_RUNTIME, ELECTRON_RUNTIME, or NW_RUNTIME) may be specified.
+#
+# When first configured, a set of files will be downloaded for the specified runtime library. The downloaded
+# files are stored in the build directory by default. `NodeJS_RUNTIME_ROOT_DIR` may be specified in order 
+# to give the path to store the downloaded runtime.
+#
+# Module Input Variables
+# ^^^^^^^^^^^^^^^^^^^^^^
+#
+# Users or projects may set the following variables to configure the module
+# behaviour:
+#
+# :variable:`NodeJS_RUNTIME_ROOT_DIR`
+#   the root of the runtime installations.
+#
+# Variables defined by the module
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#
+# Result variables
+# """"""""""""""""
+# ``NodeJS_FOUND``
+#   ``TRUE`` if the NodeJS installation and runtime files are found, ``FALSE``
+#   otherwise. All variable below are defined if NodeJS is found.
+# ``NodeJS_EXECUTABLE`` (Cached)
+#   Path to the Node.js binary program.
+# ``NodeJS_INCLUDE_DIRS`` (Cached)
+#  the pathes of the Node.js libraries' headers
+# ``NodeJS_LIBRARIES`` (Cached)
+#   the whole set of libraries of Node.js
+# ``NodeJS_RUNTIME_LIBRARY`` (Cached)
+#   library for the selected runtime
+# ``NodeJS_RUNTIME_INCLUDE_DIR`` (Cached)
+#   include path for the selected runtime headers
+# ``NodeJS_UV_INCLUDE_DIR`` (Cached)
+#   include path for the libuv library headers (Available only if the component 
+#   ``ELECTRON_RUNTIME`` or ``NW_RUNTIME`` is requested)
+# ``NodeJS_V8_INCLUDE_DIR`` (Cached)
+#   include path for the V8 library headers (Available only if the component 
+#   ``ELECTRON_RUNTIME`` or ``NW_RUNTIME`` is requested)
+# ``NodeJS_Electron_DIR`` (Cached)
+#   path to Node.js electron module (Available only if the component 
+#   ``ELECTRON_RUNTIME`` is requested)
+# ``NodeJS_Electron_VERSION`` (Cached)
+#   installed electron version (Available only if the component 
+#   ``ELECTRON_RUNTIME`` is requested)
+# ``NodeJS_NW_DIR`` (Cached)
+#   path to Node.js webpack module (Available only if the component 
+#   ``NW_RUNTIME`` is requested)
+# ``NodeJS_NW_VERSION`` (Cached)
+#   installed webpack version
+# ``NodeJS_NW_LIBRARY`` (Cached)
+#   NW library
+# ``NodeJS_NAN_FOUND``
+#   ``TRUE`` if the NodeJS NAN package is found, ``FALSE``
+#   otherwise. Variables NodeJS_NAN_XXX below are defined if NAN is found.
+# ``NodeJS_NAN_INCLUDE_DIR`` (Cached)
+#   include path for NAN module headers (Available only if the component NAN is requested)
+# ``NodeJS_NAN_VERSION`` (Cached)
+#   version of NAN module (Available only if the component NAN is requested)
+# ``NodeJS_NAPI_FOUND``
+#   ``TRUE`` if the NodeJS node-addon-api package is found, ``FALSE``
+#   otherwise. All variable NodeJS_NAPI_XXX below are defined if NAPI is found.
+# ``NodeJS_NAPI_INCLUDE_DIRS`` (Cached)
+#   include path for N-API module headers (Available only if the component NAPI is requested)
+# ``NodeJS_NAPI_VERSION`` (Cached)
+#   version of node-addon-api module headers (Available only if the component NAPI is requested)
+#
+# Provided functions
+# ^^^^^^^^^^^^^^^^^^
+#
+# :command:`FindNodePackage`
+#   run npm to find an installed package. If success, returns directory and version info.
+# :command:`FindNodeJSRuntime`
+#   look for runtime files in `NodeJS_RUNTIME_ROOT_DIR`; if not found, download the files.
 
+# detect NodeJS (which should be on environment path)
+if (NOT (NodeJS_EXECUTABLE AND NodeJS_VERSION))
+  find_program(NodeJS_EXECUTABLE node)
+  get_filename_component(NodeJS_BIN_DIR ${NodeJS_EXECUTABLE} DIRECTORY)
 
-# pkg_check_modules(PC_NodeJS QUIET NodeJS)
-
-find_program(NodeJS_EXECUTABLE node)
-get_filename_component(NodeJS_BIN_DIR ${NodeJS_EXECUTABLE} DIRECTORY)
-
-execute_process(COMMAND "${NodeJS_EXECUTABLE}" --version OUTPUT_VARIABLE NodeJS_Ver)
-string(STRIP ${NodeJS_Ver} NodeJS_Ver)
-string(SUBSTRING ${NodeJS_Ver} 1 -1 NodeJS_Ver)
-message("NodeJS_Ver: ${NodeJS_Ver}")
+  # parse the version
+  execute_process(COMMAND "${NodeJS_EXECUTABLE}" --version OUTPUT_VARIABLE NodeJS_VERSION)
+  string(STRIP ${NodeJS_VERSION} NodeJS_VERSION)
+  string(SUBSTRING ${NodeJS_VERSION} 1 -1 NodeJS_VERSION)
+  set(NodeJS_VERSION ${NodeJS_VERSION} CACHE INTERNAL "version of Node.js binary")
+endif (NOT (NodeJS_EXECUTABLE AND NodeJS_VERSION))
 
 # Get native target architecture
 include(CheckSymbolExists)
@@ -74,10 +139,14 @@ else(WIN32)
   list(LENGTH APPEND)
 endif(WIN32)
 
-# define the function to look for a node package (runs npm)
+# define the function to look for an installed node package (runs npm)
 function(FindNodePackage dir ver pkg)
+  
+  message ("Looking for Node.js package: ${pkg}")
+
   # check the local node_modules first
-  execute_process(COMMAND ${NPM} ${NPM_ARGS} list ${pkg} OUTPUT_VARIABLE list_output)
+  execute_process(COMMAND ${NPM} ${NPM_ARGS} list ${pkg} OUTPUT_VARIABLE list_output 
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}) # local install
   string(STRIP ${list_output} list_output)
   string(FIND ${list_output} "\n" pos REVERSE)
   if (pos EQUAL -1)
@@ -87,7 +156,8 @@ function(FindNodePackage dir ver pkg)
   string(SUBSTRING ${list_output} ${pos} -1 pkg_info)
   string(FIND ${pkg_info} "@" at_pos)
   if (at_pos EQUAL -1) # not found, try global
-    execute_process(COMMAND ${NPM} ${NPM_ARGS} list ${pkg} -g OUTPUT_VARIABLE list_output)
+    execute_process(COMMAND ${NPM} ${NPM_ARGS} list ${pkg} -g OUTPUT_VARIABLE list_output 
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}) # global install
     string(STRIP ${list_output} list_output)
     string(FIND ${list_output} "\n" pos REVERSE)
     if (pos EQUAL -1)
@@ -116,20 +186,17 @@ function(FindNodePackage dir ver pkg)
   endif()
 endfunction(FindNodePackage)
 
-# sort requested components into runtime & library
+# separate requested components into runtime & library
 foreach(component IN LISTS NodeJS_FIND_COMPONENTS)
   if (component MATCHES .+_RUNTIME)
     list(APPEND runtime_component ${component})
-  elseif (component MATCHES .+_LIBRARY)
-    message("Found LIBRARY: ${component}")
-    list(APPEND library_component ${component})
-  else()
-    message(FATAL_ERROR "Unknown component: ${component}")
+  else ()
+    list(APPEND library_components ${component})
   endif()
 endforeach(component IN LISTS NodeJS_FIND_COMPONENTS)
 
 # only 1 RUNTIME component maybe requested
-if (DEFINED runtime_component)
+if (runtime_component)
   list(LENGTH runtime_component num_runtime)
   if (${num_runtime} GREATER 1)
     message(FATAL_ERROR "Cannot set multiple RUNTIME components.")
@@ -138,106 +205,239 @@ if (DEFINED runtime_component)
 else()
   set(runtime_component "NODE_RUNTIME") # default runtime
 endif()
-message("Found RUNTIME: ${runtime_component}")
 
-# Create root directory to store runtime headers and .lib files
+# If not specified by user, create root directory to store runtime headers and .lib files 
 set(NodeJS_RUNTIME_ROOT_DIR "${CMAKE_BINARY_DIR}" CACHE PATH "Root directory of where to load/save node runtime")
 if (NOT IS_DIRECTORY ${NodeJS_RUNTIME_ROOT_DIR})
   message(FATAL_ERROR "NodeJS_RUNTIME_ROOT_DIR is not a valid directory (${NodeJS_RUNTIME_ROOT_DIR}).")
 endif()
 
-function (FindNodeJSRuntime root incl_suffix headerurl lib_suffix winliburl)
+# FUNCTION to detect & download a runtime library
+#   Accesses: NodeJS_RUNTIME_ROOT_DIR
+function (FindNodeJSRuntime base incl_suffix headerurl winliburl)
   # check if the runtime header files have been downloaded already
+  set(incl_hint "${NodeJS_RUNTIME_ROOT_DIR}/${base}/${incl_suffix}")
   find_path (NodeJS_RUNTIME_INCLUDE_DIR node.h
-             HINTS ${root}
-             PATH_SUFFIXES ${incl_suffix}
+             HINTS ${incl_hint}
              DOC "Include directory of Node runtime library"
              NO_DEFAULT_PATH)
 
   # if not available, download and unpack the header files
-  if (NOT EXISTS NodeJS_RUNTIME_INCLUDE_DIR)
+  if (NOT NodeJS_RUNTIME_INCLUDE_DIR)
     get_filename_component(DL_DST ${headerurl} NAME)
-    set(DL_DST "${CMAKE_BINARY_DIR}/${EL_DST}")
-    file(DOWNLOAD ${headerurl}
-         ${DL_DST})
-    execute_process(COMMAND "cmake" -E tar xzf "${DL_DST}") # unpack root
+    set(DL_DST "${CMAKE_BINARY_DIR}/${DL_DST}")
+    
+    message("Downloading runtime header files from\n\t${headerurl}")
+
+    file(DOWNLOAD ${headerurl} ${DL_DST})
+    execute_process(COMMAND "cmake" -E tar xzf "${DL_DST}" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}") # unpack root
+    find_path (NodeJS_RUNTIME_INCLUDE_DIR node.h
+              HINTS ${NodeJS_RUNTIME_ROOT_DIR}
+              PATH_SUFFIXES "${base}/${incl_suffix}"
+              DOC "Include directory of Node runtime library"
+              NO_DEFAULT_PATH)
   endif()
 
   # find the runtime library file
-  find_library (NodeJS_RUNTIME_LIBRARY node
-                HINTS ${root}
-                PATH_SUFFIXES ${lib_suffix}
-                DOC "Node runtime library")
+  set(lib_hint "${NodeJS_RUNTIME_ROOT_DIR}/${base}/lib/win-${ARCH_STR}")
+  find_library (NodeJS_RUNTIME_LIBRARY node HINTS ${lib_hint} DOC "Node runtime library")
 
   # if not available additionally download .lib file for windows build
   if (WIN32 AND NOT NodeJS_RUNTIME_LIBRARY)
-    set(DL_DST "${root}/lib/node.lib")
-    file(DOWNLOAD ${winliburl} ${DL_DST})
-    if (EXISTS ${DL_DST})
-      set(NodeJS_RUNTIME_LIBRARY "${DL_DST}" CACHE PATH "NodeJS runtime library" FORCE)
-    endif ()
+    message("Downloading runtime library file from \n\t${winliburl}")
+    file(DOWNLOAD ${winliburl} "${lib_hint}/node.lib")
+    find_library (NodeJS_RUNTIME_LIBRARY node HINTS ${lib_hint} DOC "Node runtime library")
   endif ()
 endfunction(FindNodeJSRuntime)
 
+# Find the include & library for the specified runtime
 if (runtime_component STREQUAL NODE_RUNTIME)
+
+  if (NodeJS_VERSION VERSION_LESS "4.0.0")
+    message(FATAL_ERROR "Node.js version earlier than v4.0.0 is not supported.")
+  endif(NodeJS_VERSION VERSION_LESS "4.0.0")
+
   # Create root directory in build directory (name=packed directory name)
-  set(Node_RUNTIME_ROOT_DIR "${NodeJS_RUNTIME_ROOT_DIR}/node-v${NodeJS_Ver}")
-  FindNodeJSRuntime(Node_RUNTIME_ROOT_DIR 
+  FindNodeJSRuntime("node-v${NodeJS_VERSION}" # expected top directory name of headers.tar.gz
                     "include/node" 
-                    "https://nodejs.org/dist/v${NodeJS_Ver}/node-v${NodeJS_Ver}-headers.tar.gz" 
-                    "lib"
-                    "https://nodejs.org/dist/v${NodeJS_Ver}/win-${ARCH_STR}/node.lib")
+                    "https://nodejs.org/dist/v${NodeJS_VERSION}/node-v${NodeJS_VERSION}-headers.tar.gz" 
+                    "https://nodejs.org/dist/v${NodeJS_VERSION}/win-${ARCH_STR}/node.lib")
+
 elseif (runtime_component STREQUAL ELECTRON_RUNTIME)
-  # electron package must be installed
-  FindNodePackage(NodeJS_Electron_Dir NodeJS_Electron_Ver electron)
-  FindNodeJSRuntime(Node_RUNTIME_ROOT_DIR 
-                    "include/node" 
-                    "https://atom.io/download/atom-shell/v${NodeJS_Electron_Ver}/node-v${NodeJS_Electron_Ver}.tar.gz" 
-                    "lib"
-                    "https://nodejs.org/dist/v${NodeJS_Ver}/win-${ARCH_STR}/node.lib")
-  message("electron package@${NodeJS_Electron_Ver} found at ${NodeJS_Electron_Dir}")
+
+  if (NOT NodeJS_Electron_DIR) 
+    # electron package must be installed (only search once)
+    FindNodePackage(dir_ ver_ electron)
+    set(NodeJS_Electron_DIR ${dir_} CACHE PATH "Electron Node Module Directory")
+    set(NodeJS_Electron_VERSION ${ver_} CACHE INTERNAL "Electron Node Module Version")
+  endif(NOT NodeJS_Electron_DIR)
+
+  if (RTC_ARCH_X86)
+    set(winliburl "https://atom.io/download/atom-shell/v${NodeJS_Electron_VERSION}/node.lib")
+  else()
+    set(winliburl "https://atom.io/download/atom-shell/v${NodeJS_Electron_VERSION}/${ARCH_STR}/node.lib")
+  endif(RTC_ARCH_X86)
+  set(base_ "node-v${NodeJS_Electron_VERSION}")
+  FindNodeJSRuntime(${base_} 
+                    "src" 
+                    "https://atom.io/download/atom-shell/v${NodeJS_Electron_VERSION}/node-v${NodeJS_Electron_VERSION}.tar.gz" 
+                    ${winliburl})
+
+  if (NodeJS_RUNTIME_INCLUDE_DIR)
+    # v8.h and uv.h files are given in deps directory
+    set(dir_ "${NodeJS_RUNTIME_ROOT_DIR}/${base_}/deps")
+    find_path (NodeJS_V8_INCLUDE_DIR v8.h
+              HINTS "${dir_}/v8/include"
+              DOC "Include directory of NodeJS v8 headers"
+              NO_DEFAULT_PATH)
+    find_path (NodeJS_UV_INCLUDE_DIR uv.h
+              HINTS "${dir_}/uv/include"
+              PATH_SUFFIXES "${base}/${incl_suffix}"
+              DOC "Include directory of NodeJS uv headers"
+              NO_DEFAULT_PATH)
+  endif (NodeJS_RUNTIME_INCLUDE_DIR)
+  
+elseif (runtime_component STREQUAL NW_RUNTIME)
+
+  if (NOT NodeJS_NW_DIR) 
+    # nw package must be installed (only search once)
+    FindNodePackage(dir_ ver_ nw)
+    set(NodeJS_NW_DIR ${dir_} CACHE PATH "NW Module Directory")
+    set(NodeJS_NW_VERSION ${ver_} CACHE INTERNAL "NW Module Version")
+  endif(NOT NodeJS_NW_DIR)
+
+  if (NodeJS_NW_VERSION VERSION_LESS "0.13.0")
+    message(FATAL_ERROR "Node.js version earlier than v0.13.0 is not supported.")
+  endif(NodeJS_NW_VERSION VERSION_LESS "0.13.0")
+
+  if (RTC_ARCH_X86)
+    set(winliburl "https://node-webkit.s3.amazonaws.com/v${NodeJS_NW_VERSION}/node.lib")
+  else()
+    set(winliburl "https://node-webkit.s3.amazonaws.com/v${NodeJS_NW_VERSION}/${ARCH_STR}/node.lib")
+  endif(RTC_ARCH_X86)
+  set(base_ "node")
+  FindNodeJSRuntime(${base_} 
+                    "src" 
+                    "https://node-webkit.s3.amazonaws.com/v${NodeJS_NW_VERSION}/nw-headers-v${NodeJS_NW_VERSION}.tar.gz" 
+                    ${winliburl})
+
+  # also need nw.lib
+  if (WIN32)
+    set(lib_hint "${NodeJS_RUNTIME_ROOT_DIR}/${base}/lib/win-${ARCH_STR}")
+    find_library (NodeJS_NW_LIBRARY nw HINTS ${lib_hint} DOC "NW runtime library")
+    if (NOT NodeJS_NW_LIBRARY)
+      if (RTC_ARCH_X86)
+        set(winliburl "https://node-webkit.s3.amazonaws.com/v${NodeJS_NW_VERSION}/nw.lib")
+      else()
+        set(winliburl "https://node-webkit.s3.amazonaws.com/v${NodeJS_NW_VERSION}/${ARCH_STR}/nw.lib")
+      endif(RTC_ARCH_X86)
+      file(DOWNLOAD ${winliburl} "${lib_hint}/nw.lib")
+      find_library (NodeJS_NW_LIBRARY nw HINTS ${lib_hint} DOC "NW runtime library")
+    endif (NOT NodeJS_NW_LIBRARY)
+  endif(WIN32)
+
+  # v8.h and uv.h files are given in deps directory
+  if (NodeJS_RUNTIME_INCLUDE_DIR)
+    set(dir_ "${NodeJS_RUNTIME_ROOT_DIR}/${base_}/deps")
+    find_path (NodeJS_V8_INCLUDE_DIR v8.h
+              HINTS "${dir_}/v8/include"
+              DOC "Include directory of NodeJS v8 headers"
+              NO_DEFAULT_PATH)
+    find_path (NodeJS_UV_INCLUDE_DIR uv.h
+              HINTS "${dir_}/uv/include"
+              PATH_SUFFIXES "${base}/${incl_suffix}"
+              DOC "Include directory of NodeJS uv headers"
+              NO_DEFAULT_PATH)
+  endif (NodeJS_RUNTIME_INCLUDE_DIR)
+    
 else()
   message(FATAL_ERROR "${runtime_component} is not a valid or supported RUNTIME component.")
 endif (runtime_component STREQUAL NODE_RUNTIME)
-  
-# # https://atom.io/download/atom-shell/v1.8.2/node-v1.8.2.tar.gz
-# # https://atom.io/download/atom-shell/v1.8.2/x64/node.lib
-# # https://atom.io/download/atom-shell/v1.8.2/node.lib
-# endif (NodeJS_RUNTIME EQUAL 0)
 
+# all is good if both include & library
+if ((EXISTS ${NodeJS_RUNTIME_INCLUDE_DIR}) AND (EXISTS ${NodeJS_RUNTIME_LIBRARY}))
+  set("NodeJS_${runtime_component}_FOUND" TRUE)
+else()
+  set("NodeJS_${runtime_component}_FOUND" FALSE)
+endif()
 
+# Check for NAN
+if (NAN IN_LIST library_components)
+  if (NOT NodeJS_NAN_INCLUDE_DIR)
+    # check the local modules first
+    FindNodePackage(dir_ ver_ nan)
+    set(NodeJS_NAN_INCLUDE_DIR ${dir_} CACHE PATH "NAN Node Module Directory")
+    set(NodeJS_NAN_VERSION ${ver_} CACHE INTERNAL "NAN Node Module Version")
+  endif()
+  if (NodeJS_NAN_INCLUDE_DIR)
+    set(NodeJS_NAN_FOUND TRUE)
+  else()
+    set(NodeJS_NAN_FOUND FALSE)
+  endif()
+endif (NAN IN_LIST library_components)
 
-# # Check for NAN
-# if (NOT EXISTS NodeJS_NAN_FOUND)
-#   # check the local modules first
-#   FindNodePackage(NodeJS_NAN_Dir NodeJS_NAN_Ver nan)
-#   if (NodeJS_NAN_Ver)
-#     set(NodeJS_NAN_FOUND ON CACHE BOOL "ON if NodeJS NAN package is installed")
-#     set(NodeJS_NAN_INCLUDE_DIR "${NodeJS_NAN_Dir}" CACHE PATH "Include directory for NodeJS NAN package")
-#   else()
-#     set(NodeJS_NAN_FOUND OFF CACHE BOOL "ON if NodeJS NAN package is installed")
-#   endif()
-# endif()
+# Check for NAPI
+if (NAPI IN_LIST library_components)
+  if (NOT NodeJS_NAPI_INCLUDE_DIRS)
+    # check the local modules first
+    FindNodePackage(dir_ ver_ "node-addon-api")
 
-# include(FindPackageHandleStandardArgs)
-# find_package_handle_standard_args(NodeJS
-#   FOUND_VAR NodeJS_FOUND
-#   REQUIRED_VARS
-#     NodeJS_LIBRARY
-#     NodeJS_INCLUDE_DIR
-#   VERSION_VAR NodeJS_VERSION
-# )
+    # only support Node.js newer than v8.5
+    if (NodeJS_VERSION VERSION_LESS_EQUAL "8.5.0")
+      message(FATAL_ERROR "Node.js version 8.5.0 or earlier is not supported.")
+    endif (NodeJS_VERSION VERSION_LESS_EQUAL "8.5.0")
 
-# if(NodeJS_FOUND)
-#   set(NodeJS_LIBRARIES ${NodeJS_LIBRARY})
-#   set(NodeJS_INCLUDE_DIRS ${NodeJS_INCLUDE_DIR})
-#   set(NodeJS_DEFINITIONS ${PC_NodeJS_CFLAGS_OTHER})
-# endif()
+    set(NodeJS_NAPI_VERSION ${ver_} CACHE INTERNAL "NAN Node Module Version")
+    if (dir_)
+      # need to include 2 directories
+      list(APPEND dir_ "${dir_}/external-napi")
+      set(NodeJS_NAPI_INCLUDE_DIRS ${dir_} CACHE PATH "NAN Node Module Directory")
+    endif (dir_)
+  endif(NOT NodeJS_NAPI_INCLUDE_DIRS)
 
-# mark_as_advanced(
-#   NodeJS_INCLUDE_DIR
-#   NodeJS_LIBRARY
-# )
+  if (NodeJS_NAPI_INCLUDE_DIRS)
+    set(NodeJS_NAPI_FOUND TRUE)
+  else()
+    set(NodeJS_NAPI_FOUND FALSE)
+  endif()
+endif (NAPI IN_LIST library_components)
 
-# # compatibility variables
-# set(NodeJS_VERSION_STRING ${NodeJS_VERSION})
+# check all the required components are set
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(NodeJS
+  FOUND_VAR NodeJS_FOUND
+  REQUIRED_VARS
+    NodeJS_RUNTIME_INCLUDE_DIR 
+    NodeJS_RUNTIME_LIBRARY
+  HANDLE_COMPONENTS
+  VERSION_VAR NodeJS_VERSION
+)
+
+if(NodeJS_FOUND)
+  list(APPEND NodeJS_INCLUDE_DIRS ${NodeJS_RUNTIME_INCLUDE_DIR} ${NodeJS_V8_INCLUDE_DIR} ${NodeJS_UV_INCLUDE_DIR}
+                                  ${NodeJS_NAN_INCLUDE_DIR} ${NodeJS_NAPI_INCLUDE_DIRS})
+  list(APPEND NodeJS_LIBRARIES ${NodeJS_RUNTIME_LIBRARY} ${NodeJS_NW_LIBRARY})
+endif()
+
+mark_as_advanced(
+  NodeJS_EXECUTABLE
+  NodeJS_VERSION
+  NodeJS_Electron_DIR
+  NodeJS_Electron_VERSION
+  NodeJS_NW_DIR
+  NodeJS_NW_VERSION
+  NodeJS_NW_LIBRARY
+  NodeJS_NAN_INCLUDE_DIR
+  NodeJS_NAN_VERSION
+  NodeJS_NAPI_INCLUDE_DIRS
+  NodeJS_NAPI_VERSION
+  NodeJS_RUNTIME_INCLUDE_DIR
+  NodeJS_RUNTIME_LIBRARY
+  NodeJS_UV_INCLUDE_DIR
+  NodeJS_V8_INCLUDE_DIR
+)
+
+# compatibility variables
+set(NodeJS_VERSION_STRING ${NodeJS_VERSION})
+set(CMAKE_JS_INC ${NodeJS_INCLUDE_DIRS})
+set(CMAKE_JS_LIB ${NodeJS_LIBRARIES})
