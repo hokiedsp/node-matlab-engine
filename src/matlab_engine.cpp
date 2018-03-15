@@ -89,7 +89,7 @@ NAN_METHOD(MatlabEngine4NodeJS::GetVariable)
     return;
   }
 
-  if (mxIsNumberOfDimenions(val) > 2 || !(mxGetM(val) == 1 || mxGetN(val) == 1))
+  if (mxGetNumberOfDimensions(val) > 2 || !(mxGetM(val) == 1 || mxGetN(val) == 1))
     return Nan::ThrowTypeError("Only vector valued MATLAB variables can be retrieved.");
 
   bool scalar = mxIsScalar(val);
@@ -152,7 +152,7 @@ NAN_METHOD(MatlabEngine4NodeJS::GetVariable)
     return Nan::ThrowTypeError("Unsupported data type.");
 }
 
-NAN_METHOD(MatlabEngine4NodeJS::SetVariable)
+NAN_METHOD(MatlabEngine4NodeJS::PutVariable)
 {
   // expect 2 arguments
   if (info.Length() != 2)
@@ -174,30 +174,30 @@ NAN_METHOD(MatlabEngine4NodeJS::SetVariable)
   Nan::MaybeLocal<v8::Value> maybe_value(info[1]);
   if (maybe_value.IsEmpty())
   {
-    val = createDoubleMatrix(0, 0, mxREAL);
+    val = mxCreateDoubleMatrix(0, 0, mxREAL);
   }
   else
   {
-    v8::Local<Value> value = maybe_value.ToLocalChecked();
-    if (value.IsBooleanObject())
+    v8::Local<v8::Value> value = maybe_value.ToLocalChecked();
+    if (value->IsBooleanObject())
     {
-      val = mxCreateLogicalScalar(value.BooleanValue());
+      val = mxCreateLogicalScalar(value->BooleanValue());
     }
-    else if (value.IsNumberObject())
+    else if (value->IsNumberObject())
     {
-      val = mxCreateDoubleScalar(value.NumberValue())
+      val = mxCreateDoubleScalar(value->NumberValue());
     }
-    else if (value.IsStringObject())
+    else if (value->IsStringObject())
     {
       Nan::Utf8String utf8_value(info[1]);
       std::string str_value(*utf8_value, utf8_value.length());
       val = mxCreateString(str_value.c_str());
     }
-    else if (value.IsArray())
+    else if (value->IsArray())
     {
       v8::Local<v8::Array> jsArr = v8::Local<v8::Array>::Cast(info[1]);
       v8::Local<v8::Value> jsElement = jsArr->Get(0);
-      int type = jsElement.IsBooleanObject() ? (jsElement.IsNumberObject() ? (jsElement.IsStringObject() ? 1 : 0) : 2) : 3; // 0-bad, 1-cell, 2-double, 3-logical
+      int type = jsElement->IsBooleanObject() ? (jsElement->IsNumberObject() ? (jsElement->IsStringObject() ? 1 : 0) : 2) : 3; // 0-bad, 1-cell, 2-double, 3-logical
       if (!type)
         return Nan::ThrowTypeError("Unsupported variable type in the array");
 
@@ -206,7 +206,7 @@ NAN_METHOD(MatlabEngine4NodeJS::SetVariable)
       for (int i = 1; i < len; ++i)
       {
         jsElement = jsArr->Get(i);
-        int elem_type = jsElement.IsBooleanObject() ? (jsElement.IsNumberObject() ? (jsElement.IsStringObject() ? 1 : 0) : 2) : 3; // 0-bad, 1-cell, 2-double, 3-logical
+        int elem_type = jsElement->IsBooleanObject() ? (jsElement->IsNumberObject() ? (jsElement->IsStringObject() ? 1 : 0) : 2) : 3; // 0-bad, 1-cell, 2-double, 3-logical
         if (!elem_type)
           return Nan::ThrowTypeError("Unsupported variable type in the array");
         if (type != elem_type) // must be a cell
@@ -235,14 +235,15 @@ NAN_METHOD(MatlabEngine4NodeJS::SetVariable)
       }
       else
       {
-        val = mxCreateCellMatrix(len, 1) for (int i = 0; i < len; ++i)
+        val = mxCreateCellMatrix(len, 1);
+        for (int i = 0; i < len; ++i)
         {
           jsElement = jsArr->Get(i);
-          if (jsElement.IsBooleanObject())
+          if (jsElement->IsBooleanObject())
             mxSetCell(val, i, mxCreateLogicalScalar(jsElement->BooleanValue()));
-          else if (jsElement.IsNumberObject())
+          else if (jsElement->IsNumberObject())
             mxSetCell(val, i, mxCreateDoubleScalar(jsElement->NumberValue()));
-          else // if (jsElement.IsStringObject()
+          else // if (jsElement->IsStringObject()
           {
             Nan::Utf8String utf8_value(jsElement);
             std::string str_value(*utf8_value, utf8_value.length());
@@ -265,6 +266,9 @@ NAN_METHOD(MatlabEngine4NodeJS::ClearOutputBuffer)
   if (info.Length() != 0)
     return Nan::ThrowError(Nan::New("Expected no argument").ToLocalChecked());
 
+  // unwrap this MatlabEngine4NodeJS
+  MatlabEngine4NodeJS *self = Nan::ObjectWrap::Unwrap<MatlabEngine4NodeJS>(info.This());
+
   // run the MATLAB && return its return value to JS
   info.GetReturnValue().Set(Nan::New(engOutputBuffer(self->ep, NULL, 0)));
 }
@@ -286,8 +290,8 @@ NAN_METHOD(MatlabEngine4NodeJS::SetOutputBuffer)
     return Nan::ThrowError(Nan::New("Input argument must be a node::Buffer instance").ToLocalChecked());
 
   char *buffer = node::Buffer::Data(info[0]);
-  unsigned int size = node::Buffer::Length(info[0]);
+  size_t size = node::Buffer::Length(info[0]);
 
   // run the MATLAB && return its return value to JS
-  info.GetReturnValue().Set(Nan::New(engOutputBuffer(self->ep, buffer, size)));
+  info.GetReturnValue().Set(Nan::New(engOutputBuffer(self->ep, buffer, (int)size)));
 }
