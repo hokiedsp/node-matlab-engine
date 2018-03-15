@@ -5,7 +5,6 @@ project(addon)
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(NodeJS REQUIRED COMPONENTS NAN)
-
 find_package(Matlab REQUIRED COMPONENTS MX_LIBRARY ENG_LIBRARY)
 
 # Build a shared library named after the project from the files in `src/`
