@@ -5,7 +5,6 @@
   "main": "main.js",
   "repository": "https://github.com/hokiedsp/node-matlab-engine",
   "keywords": [
-    
     "c/c++ addon",
     "matlab"
   ],
