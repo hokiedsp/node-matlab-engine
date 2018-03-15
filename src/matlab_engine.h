@@ -1,3 +1,25 @@
+// <nan.h>
+// Nan::NAN_METHOD_RETURN_TYPE name(Nan::NAN_METHOD_ARGS_TYPE info)
+// typedef const FunctionCallbackInfo<v8::Value>& NAN_METHOD_ARGS_TYPE;
+// <v8.h>
+// FunctionCallbackInfo: https://v8.paulfryzel.com/docs/master/classv8_1_1_function_callback_info.html
+// V8_INLINE int 	Length () const 
+// V8_INLINE Local< Value > 	operator[] (int i) const // arguments
+// V8_INLINE Local< Function > 	Callee () const
+// V8_INLINE Local< Object > 	This () const
+// V8_INLINE Local< Object > 	Holder () const
+// V8_INLINE bool 	IsConstructCall () const
+// V8_INLINE Local< Value > 	Data () const
+// V8_INLINE Isolate * 	GetIsolate () const
+// V8_INLINE ReturnValue< T > 	GetReturnValue () const 
+//
+// v8::Local: https://v8.paulfryzel.com/docs/master/classv8_1_1_local.html
+// v8::Value: https://v8.paulfryzel.com/docs/master/classv8_1_1_value.html
+// v8::ReturnValue: https://v8.paulfryzel.com/docs/master/classv8_1_1_return_value.html
+
+// typedef void NAN_METHOD_RETURN_TYPE;
+
+
 #pragma once
 
 #include <engine.h>
@@ -27,25 +49,25 @@ public:
   
   static Nan::Persistent<v8::FunctionTemplate> constructor;
 
-  bool Evaluate(const char *command)
-  {
-    return engEvalString(ep, command);
-  }
+  // bool Evaluate(const char *command)
+  // {
+  //   return engEvalString(ep, command);
+  // }
 
-  mxArray *GetVariable(const char *name)
-  {
-    return engGetVariable(ep, name);
-  }
+  // mxArray *GetVariable(const char *name)
+  // {
+  //   return engGetVariable(ep, name);
+  // }
 
-  bool PutVariable(const std::string &name, const mxArray *value)
-  {
-    return engPutVariable(ep, name.c_str(), value);
-  }
+  // bool PutVariable(const std::string &name, const mxArray *value)
+  // {
+  //   return engPutVariable(ep, name.c_str(), value);
+  // }
 
-  bool SetOutputBuffer(char *p, int n)
-  {
-    return engOutputBuffer(ep, p, n);
-  }
+  // bool SetOutputBuffer(char *p, int n)
+  // {
+  //   return engOutputBuffer(ep, p, n);
+  // }
 
 private:
   // instance counted
