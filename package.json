@@ -1,34 +1,18 @@
 {
-  "name": "cmake-js-quick-start",
-  "version": "1.0.0",
-  "description": "A minimal Electron application with C++ addon",
+  "name": "matlab-engine",
+  "version": "0.0.1",
+  "description": "C++ addon to run Matlab",
   "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "install": "cmake-js compile"
-  },
-  "repository": "https://github.com/electron/electron-quick-start",
+  "repository": "https://github.com/hokiedsp/node-matlab-engine",
   "keywords": [
-    "Electron",
-    "quick",
-    "start",
-    "tutorial",
-    "demo",
-    "cmake-js",
-    "c/c++ addon"
+    
+    "c/c++ addon",
+    "matlab"
   ],
-  "devDependencies": {
-    "cmake-js": "^3.6.2",
-    "electron": "~1.8.2"
+  "devDependencies": {    
   },
   "dependencies": {
     "bindings": "^1.3.0",
-    "nan": "^2.9.2",
-    "node-addon-api": "^1.2.0"
-  },
-  "cmake-js": {
-    "runtime": "node",
-    "runtimeVersion": "9.4.0",
-    "arch": "x64"
-  }
+    "nan": "^2.9.2"
+ }
 }
