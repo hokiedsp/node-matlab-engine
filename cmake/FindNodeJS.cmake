@@ -166,6 +166,20 @@ function(FindNodePackage dir ver pkg)
     math(EXPR pos "${pos}+1")
     string(SUBSTRING ${list_output} ${pos} -1 pkg_info)
     string(FIND ${pkg_info} "@" at_pos)
+
+    if (at_pos EQUAL -1) # not found, try current directory
+      execute_process(COMMAND ${NPM} ${NPM_ARGS} list OUTPUT_VARIABLE list_output 
+                      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}) # global install
+      string(STRIP ${list_output} list_output)
+      string(FIND ${list_output} "\n" pos REVERSE)
+      if (pos EQUAL -1)
+        message(FATAL_ERROR "expects 2 output lines from \"npm list\"")
+      endif()
+      math(EXPR pos "${pos}+1")
+      string(SUBSTRING ${list_output} ${pos} -1 pkg_info)
+      string(FIND ${pkg_info} "@" at_pos)
+      set(not_pkg TRUE)
+    endif()
   endif()
 
   if (NOT (at_pos EQUAL -1))
@@ -181,7 +195,9 @@ function(FindNodePackage dir ver pkg)
     math(EXPR len ${len}-${pos})
     string(SUBSTRING ${list_output} ${pos} ${len} dir_) # path to the parent of node_modules
     file(TO_CMAKE_PATH ${dir_} dir_)
-    string (CONCAT dir_ ${dir_}   "/node_modules/" ${pkg})
+    if (NOT not_pkg)
+      string (CONCAT dir_ ${dir_} "/node_modules/${pkg}")
+    endif (NOT not_pkg)
     set(${dir} ${dir_} PARENT_SCOPE)
   endif()
 endfunction(FindNodePackage)
@@ -387,11 +403,11 @@ if (NAPI IN_LIST library_components)
       message(FATAL_ERROR "Node.js version 8.5.0 or earlier is not supported.")
     endif (NodeJS_VERSION VERSION_LESS_EQUAL "8.5.0")
 
-    set(NodeJS_NAPI_VERSION ${ver_} CACHE INTERNAL "NAN Node Module Version")
+    set(NodeJS_NAPI_VERSION ${ver_} CACHE INTERNAL "N-API Node Module Version")
     if (dir_)
       # need to include 2 directories
       list(APPEND dir_ "${dir_}/external-napi")
-      set(NodeJS_NAPI_INCLUDE_DIRS ${dir_} CACHE PATH "NAN Node Module Directory")
+      set(NodeJS_NAPI_INCLUDE_DIRS ${dir_} CACHE PATH "N-API Node Module Directory")
     endif (dir_)
   endif(NOT NodeJS_NAPI_INCLUDE_DIRS)
 

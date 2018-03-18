@@ -8,7 +8,7 @@
                 "${workspaceRoot}"
             ],
             "defines": [],
-            "compileCommands": "",
+            "compileCommands": "build/compile_commands.json",
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
@@ -32,7 +32,7 @@
                 "${workspaceRoot}"
             ],
             "defines": [],
-            "compileCommands": "",
+            "compileCommands": "build/compile_commands.json",
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
@@ -59,7 +59,7 @@
                 "UNICODE",
                 "_UNICODE"
             ],
-            "compileCommands": "",
+            "compileCommands": "build/compile_commands.json",
             "intelliSenseMode": "msvc-x64",
             "browse": {
                 "path": [
