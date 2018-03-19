@@ -1,4 +1,5 @@
 #include "matlab-mxarray.h"
+#include "napi_utils.h"
 
 MatlabMxArray::MatlabMxArray() : env_(nullptr), wrapper_(nullptr), array(nullptr) {}
 
@@ -86,6 +87,12 @@ napi_value MatlabMxArray::create(napi_env env, napi_callback_info info)
   }
 }
 
+napi_value MatlabMxArray::getData(napi_env env, napi_callback_info info) // Get mxArray content as a JavaScript data type
+{
+}
+napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info) // Set mxArray content from JavaScript object
+{
+}
 
 napi_value MatlabMxArray::to_value(napi_env env, const mxArray *array) // worker for GetData()
 {
@@ -93,48 +100,48 @@ napi_value MatlabMxArray::to_value(napi_env env, const mxArray *array) // worker
   napi_value rval(nullptr);
   if (mxIsEmpty(array))
   {
-    status = napi_get_null(env,&rval);
-    assert(status==napi_ok);
+    status = napi_get_null(env, &rval);
+    assert(status == napi_ok);
   }
   else
   {
     switch (mxGetClassID(array))
     {
     case mxCELL_CLASS:
-      rval = from_cell(env,array);
+      rval = from_cell(env, array);
       break;
     case mxSTRUCT_CLASS:
-      rval = from_struct(env,array);
+      rval = from_struct(env, array);
       break;
     case mxLOGICAL_CLASS:
-      rval = from_logicals(env,array);
+      rval = from_logicals(env, array);
       break;
     case mxCHAR_CLASS:
-      rval = from_chars(env,array);
+      rval = from_chars(env, array);
       break;
     case mxDOUBLE_CLASS:
-      rval = from_numeric<double>(env,array,napi_float64_array);
+      rval = from_numeric<double>(env, array, napi_float64_array);
       break;
     case mxSINGLE_CLASS:
-      rval = from_numeric<float>(env,array,napi_float32_array);
+      rval = from_numeric<float>(env, array, napi_float32_array);
       break;
     case mxINT8_CLASS:
-      rval = from_numeric<int8_t>(env,array,napi_int8_array);
+      rval = from_numeric<int8_t>(env, array, napi_int8_array);
       break;
     case mxUINT8_CLASS:
-      rval = from_numeric<uint8_t>(env,array,napi_uint8_array);
+      rval = from_numeric<uint8_t>(env, array, napi_uint8_array);
       break;
     case mxINT16_CLASS:
-      rval = from_numeric<int16_t>(env,array,napi_int16_array);
+      rval = from_numeric<int16_t>(env, array, napi_int16_array);
       break;
     case mxUINT16_CLASS:
-      rval = from_numeric<uint16_t>(env,array,napi_uint16_array);
+      rval = from_numeric<uint16_t>(env, array, napi_uint16_array);
       break;
     case mxINT32_CLASS:
-      rval = from_numeric<int32_t>(env,array,napi_int32_array);
+      rval = from_numeric<int32_t>(env, array, napi_int32_array);
       break;
     case mxUINT32_CLASS:
-      rval = from_numeric<uint32_t>(env,array,napi_uint32_array);
+      rval = from_numeric<uint32_t>(env, array, napi_uint32_array);
       break;
     case mxINT64_CLASS:
     case mxUINT64_CLASS:
@@ -142,9 +149,9 @@ napi_value MatlabMxArray::to_value(napi_env env, const mxArray *array) // worker
     case mxFUNCTION_CLASS:
     case mxUNKNOWN_CLASS:
     default:
-      napi_throw_error(env,"","Unknown or unsupported mxArray type.");
+      napi_throw_error(env, "", "Unknown or unsupported mxArray type.");
     }
-  } 
+  }
   return rval;
 }
 
@@ -300,9 +307,72 @@ napi_value MatlabMxArray::from_struct(napi_env env, const mxArray *array, int in
   return rval;
 }
 
-// mxArray *from_boolean(napi_env env, napi_callback_info info);    // logical scalar
-// mxArray *from_number(napi_env env, napi_callback_info info);     // numeric scalar
-// mxArray *from_string(napi_env env, napi_callback_info info);     // char string
-// mxArray *from_typed_array(napi_env env, napi_callback_info info); // numeric vector
-// mxArray *from_object(napi_env env, napi_callback_info info);     // for struct
-// mxArray *from_array(napi_env env, napi_callback_info info);      // for cell
+mxArray *MatlabMxArray::from_value(napi_env env, const napi_value value) // worker for GetData()
+{
+  napi_status status;
+  rval(nullptr);
+  napi_valuetype type;
+  status = napi_typeof(env, value, &type);
+  assert(status == napi_ok);
+
+  switch (type)
+  {
+  case napi_null:
+    return mxCreateDoubleMatrix(0, 0, mxREAL);
+  case napi_boolean:
+    bool bool_val;
+    status = napi_get_value_bool(env, value, &bool_val);
+    assert(status == napi_ok);
+    return mxCreateLogicalScalar(bool_val);
+  case napi_number:
+    double dbl_val;
+    status = napi_get_value_double(env, value, &dbl_val);
+    assert(status == napi_ok);
+    return mxCreateDoubleScalar(dbl_val);
+  case napi_string:
+    std::string str_val = napi_get_value_string_utf8(env, value);
+    return mxCreateString(str_val.c_str());
+  case napi_object:
+    bool is_subtype;
+    status = napi_is_array(env, value, &is_subtype);
+    assert(status == napi_ok);
+    if (is_subtype)
+    {
+      return from_array();
+    }
+    else
+    {
+      napi_is_typedarray return from_object();
+    }
+  case napi_symbol:
+  case napi_undefined:
+  case napi_function:
+  case napi_external:
+  default:
+  }
+
+  mxArray *MatlabMxArray::from_typed_array(napi_env env, const napi_value value) // numeric vector
+      {
+          status napi_get_typedarray_info(napi_env env,
+                                          napi_value typedarray,
+                                          napi_typedarray_type * type,
+                                          size_t * length,
+                                          void **data,
+                                          napi_value *arraybuffer,
+                                          size_t *byte_offset)
+              napi_int8_array,
+          napi_uint8_array,
+          napi_uint8_clamped_array,
+          napi_int16_array,
+          napi_uint16_array,
+          napi_int32_array,
+          napi_uint32_array,
+          napi_float32_array,
+          napi_float64_array,
+      } mxArray *
+      MatlabMxArray::from_object(napi_env env, const napi_value value) // for struct
+  {
+  }
+  mxArray *MatlabMxArray::from_array(napi_env env, const napi_value value) // for cell
+  {
+  }

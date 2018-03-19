@@ -13,11 +13,6 @@
 #include <map>
 #include <string>
 
-/**
- * \brief convert node.js string value to utf8-encoded std::string
- */
-std::string napi_get_value_string_utf8(napi_env env, napi_value value);
-
 class MatlabEngine
 {
 public:

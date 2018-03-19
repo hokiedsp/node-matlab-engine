@@ -84,8 +84,7 @@ private:
   // GetN	//Number of columns in array
   // SetN	//Set number of columns in array
 
-  static napi_value GetData(napi_env env, napi_callback_info info); // Get mxArray content as a JavaScript data type
-  static napi_value SetData(napi_env env, napi_callback_info info); // Set mxArray content from JavaScript object
+  static napi_value getData(napi_env env, napi_callback_info info); // Get mxArray content as a JavaScript data type
 
   napi_value to_value(napi_env env, const mxArray *array); // worker for GetData()
   template <typename data_type, typename MxGetFun>
@@ -97,10 +96,12 @@ private:
   napi_value from_cell(napi_env env, const mxArray *array);                                     // for a struct
   napi_value from_struct(napi_env env, const mxArray *array, int index = -1);                   // for a cell
 
-  static mxArray *from_boolean(napi_env env, napi_callback_info info);     // logical scalar
-  static mxArray *from_number(napi_env env, napi_callback_info info);      // numeric scalar
-  static mxArray *from_string(napi_env env, napi_callback_info info);      // char string
-  static mxArray *from_typed_array(napi_env env, napi_callback_info info); // numeric vector
-  static mxArray *from_object(napi_env env, napi_callback_info info);      // for struct
-  static mxArray *from_array(napi_env env, napi_callback_info info);       // for cell
+  static napi_value setData(napi_env env, napi_callback_info info); // Set mxArray content from JavaScript object
+  mxArray *from_value(napi_env env, const napi_value value);        // worker for GetData()
+  mxArray *from_boolean(napi_env env, const napi_value value);      // logical scalar
+  mxArray *from_number(napi_env env, const napi_value value);       // numeric scalar
+  mxArray *from_string(napi_env env, const napi_value value);       // char string
+  mxArray *from_typed_array(napi_env, const napi_value value);      // numeric vector
+  mxArray *from_object(napi_env env, const napi_value value);       // for struct
+  mxArray *from_array(napi_env env, const napi_value value);        // for cell
 };
