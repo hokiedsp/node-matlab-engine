@@ -248,7 +248,7 @@ napi_value MatlabEngine::get_variable(napi_env env, napi_callback_info info)
   MatlabMxArray *array;
   status = napi_unwrap(env, instance, reinterpret_cast<void **>(&array));
   assert(status == napi_ok);
-  array->setMxArray(*obj); // responsible to delete mxArray
+  array->setMxArray(val); // responsible to delete mxArray
 
   return instance;
 }
