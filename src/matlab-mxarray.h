@@ -89,7 +89,7 @@ private:
 
   napi_value to_value(napi_env env, const mxArray *array); // worker for GetData()
   template <typename data_type, typename MxGetFun>
-  napi_value to_typedarray(napi_env env, const napi_typedarray_type type, mxArray *array, MxGetFun mxGet); // logical scalar (or array with index arg)
+  napi_value to_typedarray(napi_env env, const napi_typedarray_type type, const mxArray *array, MxGetFun mxGet); // logical scalar (or array with index arg)
   template <typename data_type>
   napi_value from_numeric(napi_env env, const mxArray *array, const napi_typedarray_type type); // logical scalar (or array with index arg)
   napi_value from_chars(napi_env env, const mxArray *array);                                    // char string
