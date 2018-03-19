@@ -98,9 +98,6 @@ private:
 
   static napi_value setData(napi_env env, napi_callback_info info); // Set mxArray content from JavaScript object
   mxArray *from_value(napi_env env, const napi_value value);        // worker for GetData()
-  mxArray *from_boolean(napi_env env, const napi_value value);      // logical scalar
-  mxArray *from_number(napi_env env, const napi_value value);       // numeric scalar
-  mxArray *from_string(napi_env env, const napi_value value);       // char string
   mxArray *from_typed_array(napi_env, const napi_value value);      // numeric vector
   mxArray *from_object(napi_env env, const napi_value value);       // for struct
   mxArray *from_array(napi_env env, const napi_value value);        // for cell

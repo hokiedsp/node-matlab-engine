@@ -310,7 +310,6 @@ napi_value MatlabMxArray::from_struct(napi_env env, const mxArray *array, int in
 mxArray *MatlabMxArray::from_value(napi_env env, const napi_value value) // worker for GetData()
 {
   napi_status status;
-  rval(nullptr);
   napi_valuetype type;
   status = napi_typeof(env, value, &type);
   assert(status == napi_ok);
@@ -333,46 +332,123 @@ mxArray *MatlabMxArray::from_value(napi_env env, const napi_value value) // work
     std::string str_val = napi_get_value_string_utf8(env, value);
     return mxCreateString(str_val.c_str());
   case napi_object:
-    bool is_subtype;
-    status = napi_is_array(env, value, &is_subtype);
-    assert(status == napi_ok);
-    if (is_subtype)
-    {
-      return from_array();
-    }
-    else
-    {
-      napi_is_typedarray return from_object();
-    }
+    return from_object(env, value);
   case napi_symbol:
   case napi_undefined:
   case napi_function:
   case napi_external:
   default:
+    napi_throw_error(env,"","Unsupported value type.");
+    return nullptr;
+  }
+}
+
+MatlabMxArray::from_object(napi_env env, const napi_value value)
+{
+  bool is_type;
+  status = napi_is_array(env, value, &is_type);
+  assert(status == napi_ok);
+  if (is_type) // array -> cell
+    return from_array(env, value);
+
+  status = napi_is_typedarray(env, value, &is_type);
+  assert(status == napi_ok);
+  if (is_type) // typedarray -> numeric vector
+    return from_typedarray(env, value);
+
+  status = napi_is_arraybuffer(env, value, &is_type);
+  assert(status == napi_ok);
+  if (is_type) // typedarray -> uint8 vector
+    return from_arraybuffer(env, value);
+
+  status = napi_is_buffer(env, value, &is_type);
+  assert(status == napi_ok);
+  if (is_type) // buffer -> uint8 vector
+    return from_buffer(env, value);
+
+  status = napi_is_dataview(env, value, &is_type);
+  assert(status == napi_ok);
+  if (is_type) // dataview -> uint8 vector
+    return from_dataview(env, value);
+
+  status = napi_is_error(env, value, &is_type);
+  assert(status==napi_ok);
+  if (is_type) // error -> throw it back
+  {
+    status = napi_throw(env, value);
+    return nullptr;
   }
 
-  mxArray *MatlabMxArray::from_typed_array(napi_env env, const napi_value value) // numeric vector
-      {
-          status napi_get_typedarray_info(napi_env env,
-                                          napi_value typedarray,
-                                          napi_typedarray_type * type,
-                                          size_t * length,
-                                          void **data,
-                                          napi_value *arraybuffer,
-                                          size_t *byte_offset)
-              napi_int8_array,
-          napi_uint8_array,
-          napi_uint8_clamped_array,
-          napi_int16_array,
-          napi_uint16_array,
-          napi_int32_array,
-          napi_uint32_array,
-          napi_float32_array,
-          napi_float64_array,
-      } mxArray *
-      MatlabMxArray::from_object(napi_env env, const napi_value value) // for struct
+  // plain object or a class constructor/instance -> value-only struct
+
+  // get array of property names
+  napi_value fnames;
+  status = napi_get_property_names(env, object, &fnames);
+  assert(status == napi_ok);
+
+  // get number of properties
+  uint32_t nfields;
+  status = napi_get_array_length(env, fnames, &nfields);
+  assert(status == napi_ok);
+
+  // create field name vector
+  std::vector<std::string> pnames;
+  std::vector<char*> fnames;
+  std::vector<mxArray*> fvalues;
+  pnames.reserve(nfields);
+  fnames.reserve(nfields);
+  for (int i = 0; i < nfields; ++i)
   {
+    napi_handle_scope scope;
+    napi_status status = napi_open_handle_scope(env, &scope);
+    assert(status == napi_ok);
+
+    napi_value pname;
+    status = napi_get_element(napi_get_element(napi_env env, pnames, i, &pname));
+    pnames.push_back(napi_get_value_string_utf8(env, pname));
+    fnames.push_back(pnames.back().c_str());
+
+    status = napi_close_handle_scope(env, scope);
+    assert(status == napi_ok);
   }
-  mxArray *MatlabMxArray::from_array(napi_env env, const napi_value value) // for cell
+  
+  // create mxArray
+  mxArray *rval = mxCreateStructMatrix(1, 1, nfields, fnames.data());
+
+  // populate fields
+  for (int i = 0; i < nfields; ++i)
   {
+    napi_handle_scope scope;
+    napi_status status = napi_open_handle_scope(env, &scope);
+    assert(status == napi_ok);
+
+    napi_value pname;
+    status = napi_get_element(napi_get_element(napi_env env, pnames, i, &pname));
+    pnames.push_back(napi_get_value_string_utf8(env, pname));
+    fnames.push_back(pnames.back().c_str());
+
+    status = napi_close_handle_scope(env, scope);
+    assert(status == napi_ok);
   }
+}
+mxArray *MatlabMxArray::from_typed_array(napi_env env, const napi_value value) // numeric vector
+    {
+        status napi_get_typedarray_info(napi_env env,
+                                        napi_value typedarray,
+                                        napi_typedarray_type *type,
+                                        size_t *length,
+                                        void **data,
+                                        napi_value *arraybuffer,
+                                        size_t *byte_offset)
+            napi_int8_array,
+        napi_uint8_array,
+        napi_uint8_clamped_array,
+        napi_int16_array,
+        napi_uint16_array,
+        napi_int32_array,
+        napi_uint32_array,
+        napi_float32_array,
+        napi_float64_array,
+    } mxArray *mxArray *MatlabMxArray::from_array(napi_env env, const napi_value value) // for cell
+{
+}
