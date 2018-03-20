@@ -78,7 +78,7 @@ napi_value MatlabEngine::Init(napi_env env, napi_value exports)
   status = napi_create_reference(env, cons, 1, &MatlabEngine::constructor);
   assert(status == napi_ok);
 
-  status = napi_set_named_property(env, exports, "MatlabEngine", cons);
+  status = napi_set_named_property(env, exports, "Engine", cons);
   assert(status == napi_ok);
   return exports;
 }

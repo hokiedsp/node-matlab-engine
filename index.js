@@ -8,7 +8,7 @@ let lib = require("./lib");
 let matlabEngine = null;
 
 let entry = module.exports = function () {
-  let ml = matlabEngine || (matlabEngine = require("bindings")("./build/ml_eng"));
+  let ml = matlabEngine || (matlabEngine = require("bindings")("./build/src"));
   // if (!af.__extended) {     ext(af);     af.__extended = true; }
   return ml;
 };

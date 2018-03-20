@@ -47,7 +47,7 @@ napi_value MatlabMxArray::Init(napi_env env, napi_value exports)
   status = napi_create_reference(env, cons, 1, &MatlabMxArray::constructor);
   assert(status == napi_ok);
 
-  status = napi_set_named_property(env, exports, "MatlabMxArray", cons);
+  status = napi_set_named_property(env, exports, "MxArray", cons);
   assert(status == napi_ok);
   return exports;
 }

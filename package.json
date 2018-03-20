@@ -2,7 +2,7 @@
   "name": "matlab-engine",
   "version": "0.0.1",
   "description": "C++ addon to perform computation in Matlab",
-  "main": "index.js",
+  "main": "test/test.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/hokiedsp/node-matlab-engine"
