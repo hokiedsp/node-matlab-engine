@@ -29,12 +29,12 @@ public:
 
   static void Destructor(napi_env env, void *nativeObject, void *finalize_hint);
 
-  void setMxArray(mxArray *array); // will be responsible to destroy array
+  bool setMxArray(mxArray *array); // will be responsible to destroy array
   const mxArray *getMxArray();     //
 
 private:
-  mxArray *array; // data array
-  std::map<void *, napi_ref> arraybuffers;
+  mxArray *array_; // data array
+  std::map<void *, napi_ref> arraybuffers_;
 
   napi_env env_;
   napi_ref wrapper_;
@@ -98,7 +98,11 @@ private:
 
   static napi_value setData(napi_env env, napi_callback_info info); // Set mxArray content from JavaScript object
   mxArray *from_value(napi_env env, const napi_value value);        // worker for GetData()
-  mxArray *from_typed_array(napi_env, const napi_value value);      // numeric vector
   mxArray *from_object(napi_env env, const napi_value value);       // for struct
+
+  mxArray *from_typedarray(napi_env, const napi_value value);      // numeric vector
+  mxArray *from_arraybuffer(napi_env, const napi_value value);      // numeric vector
+  mxArray *from_buffer(napi_env, const napi_value value);      // numeric vector
+  mxArray *from_dataview(napi_env, const napi_value value);      // numeric vector
   mxArray *from_array(napi_env env, const napi_value value);        // for cell
 };

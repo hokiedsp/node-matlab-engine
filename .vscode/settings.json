@@ -27,6 +27,8 @@
     "iosfwd": "cpp",
     "xlocale": "cpp",
     "sstream": "cpp",
-    "map": "cpp"
+    "map": "cpp",
+    "algorithm": "cpp",
+    "list": "cpp"
   }
 }

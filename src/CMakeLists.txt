@@ -11,3 +11,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${NodeJS_INCLUDE_DIRS} ${Matl
 # Essential library files to link to a node addon
 # You should add this line in every CMake.js based project
 target_link_libraries(${PROJECT_NAME} ${NodeJS_LIBRARIES} ${Matlab_ENG_LIBRARY} ${Matlab_MX_LIBRARY})
+
+if (MSVC)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE _SCL_SECURE_NO_WARNINGS)
+endif()
