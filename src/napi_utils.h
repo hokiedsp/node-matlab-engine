@@ -31,4 +31,3 @@ inline std::string napi_get_value_string_utf8(napi_env env, napi_value value)
 
   return expr;
 }
-

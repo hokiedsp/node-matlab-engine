@@ -10,17 +10,29 @@ var matlab = require('bindings')('addon');
 
 console.log(matlab);
 
-var obj = new matlab.Engine();
-console.log(obj);
-// var o = obj;
+var session = new matlab.Engine();
+console.log(session);
+// var o = session;
 // do {
 //     console.log(Object.getOwnPropertyNames(o));
 // } while (o = Object.getPrototypeOf(o));
-obj.evaluate("x = 5");
-// var mxvar = obj.getData("x");
+session.evaluate("x = 5");
+
+console.log(session.getVisible() ? "MATLAB is visible":"MATLAB is hidden");
+session.setVisible(false);
+console.log(session.getVisible() ? "MATLAB is visible":"MATLAB is hidden");
+session.setVisible(true);
+console.log(session.getVisible() ? "MATLAB is visible":"MATLAB is hidden");
+
+session.setOutputBufferSize(2048);
+console.log(session.evaluate("ver"));
+session.evaluate("help");
+console.log(session.getLastOutput());
+
+// var mxvar = session.getData("x");
 // console.log( mxvar.getData() ); // 11
 
-delete obj
+delete session
 
 function forceGC() {
   if (global.gc) {

@@ -83,6 +83,11 @@ private:
  */
   static napi_value set_output_buffer(napi_env env, napi_callback_info info);
 
+  /**
+ * \brief Retrieve the output buffer from MATLAB
+ */
+  static napi_value get_output_buffer(napi_env env, napi_callback_info info);
+
   struct MATLAB_ENGINES
   {
     Engine *ep;

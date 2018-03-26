@@ -74,12 +74,13 @@ napi_value MatlabEngine::Init(napi_env env, napi_value exports)
       DECLARE_NAPI_METHOD("putVariable", MatlabEngine::put_variable),
       DECLARE_NAPI_METHOD("getVisible", MatlabEngine::get_visible),
       DECLARE_NAPI_METHOD("setVisible", MatlabEngine::set_visible),
-      DECLARE_NAPI_METHOD("setOutputBuffer", MatlabEngine::set_output_buffer)};
+      DECLARE_NAPI_METHOD("setOutputBufferSize", MatlabEngine::set_output_buffer),
+      DECLARE_NAPI_METHOD("getLastOutput", MatlabEngine::get_output_buffer)};
 
   //
   napi_value cons;
   status = napi_define_class(env, "MatlabEngine", NAPI_AUTO_LENGTH, MatlabEngine::create,
-                             nullptr, 6, properties, &cons);
+                             nullptr, 7, properties, &cons);
   assert(status == napi_ok);
 
   status = napi_create_reference(env, cons, 1, &MatlabEngine::constructor);
@@ -196,7 +197,10 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
     return rval;
   }
 
-  return nullptr;
+  // return the output displayed on the MATLAB command window as a response the last evalution
+  napi_value rval;
+  status = napi_create_string_utf8(env,obj->output.c_str(),NAPI_AUTO_LENGTH, &rval);
+  return rval;
 }
 
 // val = getVariable(name) returns mxArray-wrapper object
@@ -360,4 +364,28 @@ napi_value MatlabEngine::set_output_buffer(napi_env env, napi_callback_info info
   engOutputBuffer(obj->ep_, obj->output.data(), size);
 
   return nullptr;
+}
+
+  /**
+ * \brief Retrieve the output buffer from MATLAB
+ */
+napi_value MatlabEngine::get_output_buffer(napi_env env, napi_callback_info info)
+{
+  napi_status status;
+
+  // retrieve details about the call
+  size_t argc = 1; // one argument: <string> expr
+  napi_value args[1];
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
+  assert(status == napi_ok && argc == 0); // must be given 2 arguments allowed
+
+  // grab the class instance
+  MatlabEngine *obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
+  assert(status == napi_ok);
+
+  napi_value rval;
+  status = napi_create_string_utf8(env,obj->output.c_str(),NAPI_AUTO_LENGTH, &rval);
+  return rval;
 }
