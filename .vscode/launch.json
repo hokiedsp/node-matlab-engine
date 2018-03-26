@@ -5,10 +5,21 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "(Windows) Attach",
+      "type": "node",
+      "request": "launch",
+      "name": "Debug in Node.js",
+      "args": ["--expose-gc", "test/test.js"]
+    },
+    {
+      "name": "Debug Native C++ Addon",
       "type": "cppvsdbg",
-      "request": "attach",
-      "processId": "${command:node}"
-    }
+      "request": "launch",
+      "program": "node.exe",
+      "args": ["--expose-gc", "test/test.js"],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false
+    },
   ]
 }

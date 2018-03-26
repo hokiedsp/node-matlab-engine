@@ -5,18 +5,23 @@
 #include <stdexcept>
 #include <string>
 
+#include <fstream>
+std::ofstream os("test.txt", std::fstream::out);
+
 napi_ref MatlabEngine::constructor;
 std::map<double, MatlabEngine::MATLAB_ENGINES> MatlabEngine::sessions;
 
 MatlabEngine::MatlabEngine(double id)
     : id_(id), env_(nullptr), wrapper_(nullptr)
 {
+  os << "MatlabEngine::MatlabEngine" << std::endl;
   try
   {
     // if at() succeeds, session already open
     auto &session = MatlabEngine::sessions.at(id_);
     ep_ = session.ep;
     ++(session.count); // increment ref count
+
   }
   catch (std::out_of_range &) // no matching session found
   {
@@ -34,6 +39,7 @@ MatlabEngine::MatlabEngine(double id)
 
 MatlabEngine::~MatlabEngine()
 {
+  os << "MatlabEngine::~MatlabEngine" << std::endl;
   // release the instance from node.js
   napi_delete_reference(env_, wrapper_);
 
@@ -47,6 +53,7 @@ MatlabEngine::~MatlabEngine()
 
 void MatlabEngine::Destructor(napi_env env, void *nativeObject, void * /*finalize_hint*/)
 {
+  os << "MatlabEngine::Destructor" << std::endl;
   reinterpret_cast<MatlabEngine *>(nativeObject)->~MatlabEngine();
 }
 
@@ -86,11 +93,11 @@ napi_value MatlabEngine::Init(napi_env env, napi_value exports)
 // create new instance of the class
 napi_value MatlabEngine::create(napi_env env, napi_callback_info info)
 {
-  napi_status status;
+  os << "MatlabEngine::create" << std::endl;
 
   // check how the function is invoked
   napi_value target;
-  status = napi_get_new_target(env, info, &target);
+  napi_status status = napi_get_new_target(env, info, &target);
   assert(status == napi_ok);
   if (target != nullptr) // Invoked as constructor: `new MatlabEngine(...)`
   {
@@ -113,12 +120,19 @@ napi_value MatlabEngine::create(napi_env env, napi_callback_info info)
     }
 
     // instantiate new class object
-    MatlabEngine *obj = new MatlabEngine(id);
+    MatlabEngine *obj;
+    try
+    {
+      obj = new MatlabEngine(id);
+    }
+    catch (...)
+    {
+      napi_throw_error(env, "", "Failed to instantiate MatlabEngine");
+    }
     obj->env_ = env; // setremember object's environment
 
     // Wraps the new native instance in a JavaScript object.
-    status = napi_wrap(env, jsthis, reinterpret_cast<void *>(obj),
-                       MatlabEngine::Destructor, nullptr, &obj->wrapper_);
+    status = napi_wrap(env, jsthis, obj, MatlabEngine::Destructor, nullptr, &obj->wrapper_);
     assert(status == napi_ok);
 
     return jsthis;
@@ -171,7 +185,7 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
     std::fill(obj->output.begin(), obj->output.end(), 0);
 
   // run MATLAB
-  assert(engEvalString(obj->ep_, expr.c_str()) > 0); // only fails if engine session is invalid
+  assert(!engEvalString(obj->ep_, expr.c_str())); // only fails if engine session is invalid
 
   // retrieve the output
   if (obj->output.size())

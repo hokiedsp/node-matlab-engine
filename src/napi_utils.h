@@ -15,19 +15,18 @@ inline std::string napi_get_value_string_utf8(napi_env env, napi_value value)
   assert(status == napi_ok);
 
   // get the string length from string property
-  napi_value key, val;
+  napi_value val;
+  status = napi_get_named_property(env, value, "length", &val);
+  assert(status == napi_ok);
+  
   uint32_t len_u32;
-  status = napi_create_string_utf8(env, "length", NAPI_AUTO_LENGTH, &key);
-  assert(status == napi_ok);
-  status = napi_get_property(env, value, key, &val);
-  assert(status == napi_ok);
-  status = napi_get_value_uint32(env, value, &len_u32);
+  status = napi_get_value_uint32(env, val, &len_u32);
   assert(status == napi_ok);
 
   // create string buffer
   size_t length;
   std::string expr(len_u32 + 1, 0);
-  status = napi_get_value_string_utf8(env, value, expr.data(), expr.size()-1, &length);
+  status = napi_get_value_string_utf8(env, value, expr.data(), expr.size(), &length);
   assert(status == napi_ok);
 
   return expr;
