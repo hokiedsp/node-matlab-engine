@@ -29,10 +29,24 @@ console.log(session.evaluate("ver"));
 session.evaluate("help");
 console.log(session.getLastOutput());
 
-// var mxvar = session.getData("x");
-// console.log( mxvar.getData() ); // 11
+var x = session.getVariable("x");
+xdata = x.getData();
+console.log( xdata ); // 5
 
-delete session
+xdata[0] = 4;
+console.log( x.getData() ); // 5
+
+let y = new matlab.MxArray();
+y.setData("test string");
+session.putVariable("y", y);
+console.log( session.getVariable("y").getData() ); // 5
+
+session.evaluate("s = struct('x',x,'y',y)");
+console.log( session.getVariable("s").getData() ); // 5
+
+
+delete session;
+delete x;
 
 function forceGC() {
   if (global.gc) {

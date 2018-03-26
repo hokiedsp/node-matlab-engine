@@ -84,6 +84,11 @@ private:
   // GetN	//Number of columns in array
   // SetN	//Set number of columns in array
 
+  static napi_value getNumericDataByRef(napi_env env, napi_callback_info info); // Get mxArray content as a JavaScript data type
+  napi_value numeric_to_ext_value(napi_env env, const bool get_imag);
+  template <typename data_type, typename MxGetFun>
+  napi_value numeric_to_ext_typedarray(napi_env env, const napi_typedarray_type type, MxGetFun mxGet);
+
   static napi_value getData(napi_env env, napi_callback_info info); // Get mxArray content as a JavaScript data type
 
   napi_value to_value(napi_env env, const mxArray *array); // worker for GetData()

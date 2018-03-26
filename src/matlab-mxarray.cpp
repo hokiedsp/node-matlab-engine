@@ -61,7 +61,7 @@ napi_value MatlabMxArray::create(napi_env env, napi_callback_info info)
   size_t argc = 0; // one optional argument: <double> id
   napi_value jsthis;
   status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok && argc != 0); // no argument allowed
+  assert(status == napi_ok && argc == 0); // no argument allowed
 
   // check how the function is invoked
   napi_value target;
@@ -102,6 +102,23 @@ const mxArray *MatlabMxArray::getMxArray()
 
 // data = mx_array.getData() Get mxArray content as a JavaScript data type
 napi_value MatlabMxArray::getData(napi_env env, napi_callback_info info) 
+{
+  // retrieve details about the call
+  size_t argc = 0; // one argument: <string> expr
+  napi_value jsthis;
+  napi_status status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
+  assert(status == napi_ok && argc == 0);
+
+  // grab the class instance
+  MatlabMxArray *obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
+  assert(status == napi_ok);
+  
+  return obj->to_value(env, obj->array_);
+}
+
+// data = mx_array.getData() Get mxArray content as a JavaScript data type
+napi_value MatlabMxArray::getNumericDataByRef(napi_env env, napi_callback_info info) 
 {
   // retrieve details about the call
   size_t argc = 0; // one argument: <string> expr
@@ -171,6 +188,108 @@ napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info)
   return nullptr;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+
+napi_value MatlabMxArray::numeric_to_ext_value(napi_env env, const bool get_imag)
+{
+  napi_status status;
+  napi_value rval(nullptr);
+  if (mxIsEmpty(array))
+  {
+    status = napi_get_null(env, &rval);
+    assert(status == napi_ok);
+  }
+  else
+  {
+    auto mxGet = mxGetData;
+    if (get_imag)
+    {
+      mxGet = mxGetImagData;
+      if (!mxIsComplex(array)) // if imaginary part does not exist, allocate
+        mxSetImagData(array, mxCalloc(mxGetNumberOfElements(array),mxGetElementSize(array)));
+    }
+
+    switch (mxGetClassID(array))
+    {
+    case mxDOUBLE_CLASS:
+      rval = numeric_to_ext_typedarray<double, decltype(mxGetData) *>(env, array, napi_float64_array, mxGet);
+      break;
+    case mxSINGLE_CLASS:
+      rval = numeric_to_ext_typedarray<float, decltype(mxGetData) *>(env, array, napi_float32_array, mxGet);
+      break;
+    case mxINT8_CLASS:
+      rval = numeric_to_ext_typedarray<int8_t, decltype(mxGetData) *>(env, array, napi_int8_array, mxGet);
+      break;
+    case mxUINT8_CLASS:
+      rval = numeric_to_ext_typedarray<uint8_t, decltype(mxGetData) *>(env, array, napi_uint8_array, mxGet);
+      break;
+    case mxINT16_CLASS:
+      rval = numeric_to_ext_typedarray<int16_t, decltype(mxGetData) *>(env, array, napi_int16_array, mxGet);
+      break;
+    case mxUINT16_CLASS:
+      rval = numeric_to_ext_typedarray<uint16_t, decltype(mxGetData) *>(env, array, napi_uint16_array, mxGet);
+      break;
+    case mxINT32_CLASS:
+      rval = numeric_to_ext_typedarray<int32_t, decltype(mxGetData) *>(env, array, napi_int32_array, mxGet);
+      break;
+    case mxUINT32_CLASS:
+      rval = numeric_to_ext_typedarray<uint32_t, decltype(mxGetData) *>(env, array, napi_uint32_array, mxGet);
+      break;
+    case mxINT64_CLASS:
+    case mxUINT64_CLASS:
+    default:
+      napi_throw_error(env, "", "Only numeric MATLAB classes are supported.");
+    }
+  }
+  return rval;
+}
+
+template <typename data_type, typename MxGetFun>
+napi_value MatlabMxArray::numeric_to_ext_typedarray(napi_env env, const napi_typedarray_type type, const mxArray *array, MxGetFun mxGet) // logical scalar (or array with index arg)
+{
+  napi_status status;
+  napi_value value, arraybuffer;
+  void *data = mxGet(array);
+  auto it = arraybuffers_.find(data); // locate existing reference to data
+  if (it == arraybuffers_.end())      // create first reference
+  {
+    status = napi_create_external_arraybuffer(
+        env, mxGet(array), mxGetNumberOfElements(array) * sizeof(data_type),
+        [](napi_env env, void *array_data, void *obj_data) {
+          MatlabMxArray *obj = reinterpret_cast<MatlabMxArray *>(obj_data);
+          // finalize callback: unreference, if no other references, delete reference
+          auto it = obj->arraybuffers_.find(array_data);
+          assert(it != obj->arraybuffers_.end());
+
+          uint32_t count;
+          napi_status status = napi_reference_unref(env, it->second, &count);
+          assert(status == napi_ok);
+          if (!count)
+          {
+            status = napi_delete_reference(env, it->second);
+            obj->arraybuffers_.erase(it);
+          }
+        },
+        this, &arraybuffer);
+    assert(status == napi_ok);
+    napi_ref array_ref;
+    status = napi_create_reference(env, arraybuffer, 1, &array_ref);
+    assert(status == napi_ok);
+    arraybuffers_.emplace(std::make_pair(reinterpret_cast<void *>(mxGet(array)), array_ref));
+  }
+  else // external arraybuffer object already exists, reference it
+  {
+    uint32_t count;
+    status = napi_reference_ref(env, it->second, &count);
+    assert(status == napi_ok);
+    status = napi_get_reference_value(env, it->second, &arraybuffer);
+    assert(status == napi_ok);
+  }
+
+  // create typed array
+  status = napi_create_typedarray(env, type, mxGetNumberOfElements(array), arraybuffer, 0, &value);
+  return value;
+}
 
 napi_value MatlabMxArray::to_value(napi_env env, const mxArray *array) // worker for GetData()
 {
