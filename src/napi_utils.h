@@ -5,40 +5,41 @@
 #include <vector>
 #include <utility>
 
-template<class T>
+template <class T>
 struct NapiCBInfo
 {
   napi_value jsthis;
   std::vector<napi_value> argv;
   T *obj;
+  void *data;
 };
 
- /**
+/**
   * \brief Retrieve JavaScript callback arguments
   *
   */
- template <class T>
- NapiCBInfo<T> napi_get_cb_Info(napi_env env, napi_callback_info info, size_t nargmin, size_t nargmax)
- {
-   napi_value jsthis;
-   size_t argc = nargmax; // optional one argument: <Boolean> getImag
-   std::vector<napi_value> argv(nargmax);
-   napi_status status = napi_get_cb_info(env, info, &argc, argv.data(), &jsthis, nullptr);
-   assert(status == napi_ok);
-   if (argc < nargmin)
-   {
-     napi_throw_type_error(env, "", "Invalid number of arguments.");
-     argv.clear();
-   }
-   else
-     argv.resize(argc); // resize to only contain given arguments
+template <class T>
+NapiCBInfo<T> napi_get_cb_info(napi_env env, napi_callback_info info, size_t nargmin, size_t nargmax)
+{
+  napi_value jsthis(nullptr);
+  size_t argc = nargmax;
+  std::vector<napi_value> argv(nargmax, nullptr);
+  void *data(nullptr);
+  napi_status status = napi_get_cb_info(env, info, &argc, argv.data(), &jsthis, &data);
+  assert(status == napi_ok);
+  if (argc < nargmin)
+  {
+    napi_throw_type_error(env, "", "Invalid number of arguments.");
+    argv.clear();
+  }
+  else
+    argv.resize(argc); // resize to only contain given arguments
 
-   // grab the class instance
-   T *obj;
-   status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-   assert(status == napi_ok);
+  // grab the class instance if possible. Otherwise, obj=null
+  T *obj(nullptr);
+  napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
 
-   return NapiCBInfo<T>{jsthis, argv, obj};
+  return NapiCBInfo<T>{jsthis, argv, obj, data};
 }
 
 /**
@@ -56,7 +57,7 @@ inline std::string napi_get_value_string_utf8(napi_env env, napi_value value)
   napi_value val;
   status = napi_get_named_property(env, value, "length", &val);
   assert(status == napi_ok);
-  
+
   uint32_t len_u32;
   status = napi_get_value_uint32(env, val, &len_u32);
   assert(status == napi_ok);
