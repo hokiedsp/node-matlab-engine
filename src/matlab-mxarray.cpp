@@ -117,23 +117,6 @@ napi_value MatlabMxArray::getData(napi_env env, napi_callback_info info)
   return obj->to_value(env, obj->array_);
 }
 
-// data = mx_array.getData() Get mxArray content as a JavaScript data type
-napi_value MatlabMxArray::getNumericDataByRef(napi_env env, napi_callback_info info) 
-{
-  // retrieve details about the call
-  size_t argc = 0; // one argument: <string> expr
-  napi_value jsthis;
-  napi_status status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 0);
-
-  // grab the class instance
-  MatlabMxArray *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
-  
-  return obj->to_value(env, obj->array_);
-}
-
 bool MatlabMxArray::setMxArray(mxArray *array) // will be responsible to destroy array
 {
   // mxArray cannot have anything referencing to it
@@ -190,11 +173,47 @@ napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info)
 
 ////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * \brief data = mx_array.getNumericDataByRef(get_imag) 
+ * 
+ * Get mxArray content as external-data typed array so that the mxArray data can be
+ * modified directly from JavaScript
+ */
+napi_value MatlabMxArray::getNumericDataByRef(napi_env env, napi_callback_info info) 
+{
+  // retrieve details about the call
+  napi_value jsthis;
+  size_t argc = 1; // optional one argument: <Boolean> getImag
+  napi_value args[1];
+  napi_status status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
+  assert(status == napi_ok && argc == 0);
+
+   // retrieve details about the call
+   bool get_imag = argc>0;
+   if (get_imag)
+   {
+     // coarse the given node.js object to string type
+     status = napi_get_value_bool(env, args[0], &get_imag);
+     if (status != napi_ok)
+     {
+       napi_throw_type_error(env, "", "get_imag must be coercable to Boolean type.");
+       return nullptr;
+     }
+   }
+
+   // grab the class instance
+   MatlabMxArray *obj;
+   status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
+   assert(status == napi_ok);
+
+   return obj->numeric_to_ext_value(env, get_imag);
+}
+
 napi_value MatlabMxArray::numeric_to_ext_value(napi_env env, const bool get_imag)
 {
   napi_status status;
   napi_value rval(nullptr);
-  if (mxIsEmpty(array))
+  if (mxIsEmpty(array_))
   {
     status = napi_get_null(env, &rval);
     assert(status == napi_ok);
@@ -205,56 +224,56 @@ napi_value MatlabMxArray::numeric_to_ext_value(napi_env env, const bool get_imag
     if (get_imag)
     {
       mxGet = mxGetImagData;
-      if (!mxIsComplex(array)) // if imaginary part does not exist, allocate
-        mxSetImagData(array, mxCalloc(mxGetNumberOfElements(array),mxGetElementSize(array)));
+      if (!mxIsComplex(array_)) // if imaginary part does not exist, allocate
+        mxSetImagData(array_, mxCalloc(mxGetNumberOfElements(array_),mxGetElementSize(array_)));
     }
 
-    switch (mxGetClassID(array))
+    switch (mxGetClassID(array_))
     {
     case mxDOUBLE_CLASS:
-      rval = numeric_to_ext_typedarray<double, decltype(mxGetData) *>(env, array, napi_float64_array, mxGet);
+      rval = numeric_to_ext_typedarray<double, decltype(mxGetData) *>(env, napi_float64_array, mxGet);
       break;
     case mxSINGLE_CLASS:
-      rval = numeric_to_ext_typedarray<float, decltype(mxGetData) *>(env, array, napi_float32_array, mxGet);
+      rval = numeric_to_ext_typedarray<float, decltype(mxGetData) *>(env, napi_float32_array, mxGet);
       break;
     case mxINT8_CLASS:
-      rval = numeric_to_ext_typedarray<int8_t, decltype(mxGetData) *>(env, array, napi_int8_array, mxGet);
+      rval = numeric_to_ext_typedarray<int8_t, decltype(mxGetData) *>(env, napi_int8_array, mxGet);
       break;
     case mxUINT8_CLASS:
-      rval = numeric_to_ext_typedarray<uint8_t, decltype(mxGetData) *>(env, array, napi_uint8_array, mxGet);
+      rval = numeric_to_ext_typedarray<uint8_t, decltype(mxGetData) *>(env, napi_uint8_array, mxGet);
       break;
     case mxINT16_CLASS:
-      rval = numeric_to_ext_typedarray<int16_t, decltype(mxGetData) *>(env, array, napi_int16_array, mxGet);
+      rval = numeric_to_ext_typedarray<int16_t, decltype(mxGetData) *>(env, napi_int16_array, mxGet);
       break;
     case mxUINT16_CLASS:
-      rval = numeric_to_ext_typedarray<uint16_t, decltype(mxGetData) *>(env, array, napi_uint16_array, mxGet);
+      rval = numeric_to_ext_typedarray<uint16_t, decltype(mxGetData) *>(env, napi_uint16_array, mxGet);
       break;
     case mxINT32_CLASS:
-      rval = numeric_to_ext_typedarray<int32_t, decltype(mxGetData) *>(env, array, napi_int32_array, mxGet);
+      rval = numeric_to_ext_typedarray<int32_t, decltype(mxGetData) *>(env, napi_int32_array, mxGet);
       break;
     case mxUINT32_CLASS:
-      rval = numeric_to_ext_typedarray<uint32_t, decltype(mxGetData) *>(env, array, napi_uint32_array, mxGet);
+      rval = numeric_to_ext_typedarray<uint32_t, decltype(mxGetData) *>(env, napi_uint32_array, mxGet);
       break;
     case mxINT64_CLASS:
     case mxUINT64_CLASS:
     default:
-      napi_throw_error(env, "", "Only numeric MATLAB classes are supported.");
+      napi_throw_error(env, "", "Only numeric MATLAB classes are supported, except for INT64 and UINT64 as Node.js does not.");
     }
   }
   return rval;
 }
 
 template <typename data_type, typename MxGetFun>
-napi_value MatlabMxArray::numeric_to_ext_typedarray(napi_env env, const napi_typedarray_type type, const mxArray *array, MxGetFun mxGet) // logical scalar (or array with index arg)
+napi_value MatlabMxArray::numeric_to_ext_typedarray(napi_env env, const napi_typedarray_type type, MxGetFun mxGet) // logical scalar (or array with index arg)
 {
   napi_status status;
   napi_value value, arraybuffer;
-  void *data = mxGet(array);
+  void *data = mxGet(array_);
   auto it = arraybuffers_.find(data); // locate existing reference to data
   if (it == arraybuffers_.end())      // create first reference
   {
     status = napi_create_external_arraybuffer(
-        env, mxGet(array), mxGetNumberOfElements(array) * sizeof(data_type),
+        env, mxGet(array_), mxGetNumberOfElements(array_) * sizeof(data_type),
         [](napi_env env, void *array_data, void *obj_data) {
           MatlabMxArray *obj = reinterpret_cast<MatlabMxArray *>(obj_data);
           // finalize callback: unreference, if no other references, delete reference
@@ -275,7 +294,7 @@ napi_value MatlabMxArray::numeric_to_ext_typedarray(napi_env env, const napi_typ
     napi_ref array_ref;
     status = napi_create_reference(env, arraybuffer, 1, &array_ref);
     assert(status == napi_ok);
-    arraybuffers_.emplace(std::make_pair(reinterpret_cast<void *>(mxGet(array)), array_ref));
+    arraybuffers_.emplace(std::make_pair(reinterpret_cast<void *>(mxGet(array_)), array_ref));
   }
   else // external arraybuffer object already exists, reference it
   {
@@ -287,9 +306,11 @@ napi_value MatlabMxArray::numeric_to_ext_typedarray(napi_env env, const napi_typ
   }
 
   // create typed array
-  status = napi_create_typedarray(env, type, mxGetNumberOfElements(array), arraybuffer, 0, &value);
+  status = napi_create_typedarray(env, type, mxGetNumberOfElements(array_), arraybuffer, 0, &value);
   return value;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 napi_value MatlabMxArray::to_value(napi_env env, const mxArray *array) // worker for GetData()
 {
@@ -357,42 +378,14 @@ napi_value MatlabMxArray::to_typedarray(napi_env env, const napi_typedarray_type
 {
   napi_status status;
   napi_value value, arraybuffer;
-  void *data = mxGet(array);
-  auto it = arraybuffers_.find(data); // locate existing reference to data
-  if (it == arraybuffers_.end())      // create first reference
-  {
-    status = napi_create_external_arraybuffer(
-        env, mxGet(array), mxGetNumberOfElements(array) * sizeof(data_type),
-        [](napi_env env, void *array_data, void *obj_data) {
-          MatlabMxArray *obj = reinterpret_cast<MatlabMxArray *>(obj_data);
-          // finalize callback: unreference, if no other references, delete reference
-          auto it = obj->arraybuffers_.find(array_data);
-          assert(it != obj->arraybuffers_.end());
+  
+  data_type *data;
+  size_t nelem = mxGetNumberOfElements(array);
+  status = napi_create_arraybuffer(env, nelem * sizeof(data_type), &reinterpret_cast<void*>(data), &arraybuffer);
+  assert(status==napi_ok);
 
-          uint32_t count;
-          napi_status status = napi_reference_unref(env, it->second, &count);
-          assert(status == napi_ok);
-          if (!count)
-          {
-            status = napi_delete_reference(env, it->second);
-            obj->arraybuffers_.erase(it);
-          }
-        },
-        this, &arraybuffer);
-    assert(status == napi_ok);
-    napi_ref array_ref;
-    status = napi_create_reference(env, arraybuffer, 1, &array_ref);
-    assert(status == napi_ok);
-    arraybuffers_.emplace(std::make_pair(reinterpret_cast<void *>(mxGet(array)), array_ref));
-  }
-  else // external arraybuffer object already exists, reference it
-  {
-    uint32_t count;
-    status = napi_reference_ref(env, it->second, &count);
-    assert(status == napi_ok);
-    status = napi_get_reference_value(env, it->second, &arraybuffer);
-    assert(status == napi_ok);
-  }
+  // copy data
+  std::copy_n(reinterpret_cast<data_type*>(mxGet(array)), nelem, data);
 
   // create typed array
   status = napi_create_typedarray(env, type, mxGetNumberOfElements(array), arraybuffer, 0, &value);
@@ -410,14 +403,18 @@ napi_value MatlabMxArray::from_numeric(napi_env env, const mxArray *array, const
     assert(status == napi_ok);
 
     status = napi_set_named_property(env, rval, "re",
-                                     to_typedarray<data_type, decltype(mxGetData) *>(env, type, array, mxGetData));
+                                     to_typedarray<data_type, 
+                                     decltype(mxGetData) *>(env, type, array, mxGetData));
     assert(status == napi_ok);
 
     status = napi_set_named_property(env, rval, "im",
-                                     to_typedarray<data_type, decltype(mxGetImagData) *>(env, type, array, mxGetImagData));
+                                     to_typedarray<data_type, 
+                                     decltype(mxGetImagData) *>(env, type, array, mxGetImagData));
     assert(status == napi_ok);
   }
-  else // return a typedarray object pointing directly at mxArray data
+  else if (mxIsDouble(array)) // return a typedarray object pointing directly at mxArray data
+    status = napi_create_double(env, mxGetScalar(array), &rval);
+  else
     rval = to_typedarray<data_type, decltype(mxGetData) *>(env, type, array, mxGetData);
 
   return rval;
@@ -503,6 +500,8 @@ napi_value MatlabMxArray::from_struct(napi_env env, const mxArray *array, int in
   }
   return rval;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 mxArray *MatlabMxArray::from_value(napi_env env, const napi_value value) // worker for GetData()
 {
@@ -760,4 +759,31 @@ mxArray *MatlabMxArray::from_dataview(napi_env env, const napi_value value)     
   mxArray *rval = mxCreateNumericMatrix(byte_length, 1, mxUINT8_CLASS, mxREAL);
   std::copy_n((uint8_t *)data, byte_length, (uint8_t *)mxGetData(rval));
   return rval;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+napi_value MatlabMxArray::isDouble(napi_env env, napi_callback_info info)
+{
+ // retrieve details about the call
+  napi_value jsthis;
+  size_t argc = 0; // optional one argument: <Boolean> getImag
+  napi_status status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
+  assert(status == napi_ok);
+  if (argc != 0)
+  {
+    napi_throw_type_error(env, "", "isDouble takes no argument.");
+    return nullptr;
+  }
+
+   // grab the class instance
+   MatlabMxArray *obj;
+   status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
+   assert(status == napi_ok);
+
+   napi_value rval;
+   napi_get_boolean(env, mxIsDouble(obj->array_), &rval);
+   assert(status == napi_ok);
+
+   return rval;
 }

@@ -166,40 +166,35 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 1; // one argument: <string> expr
-  napi_value args[1];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 1); // only 0 or 1 arguments allowed
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_Info<MatlabEngine>(env, info, 1, 1);
 
   // create expression string
-  std::string expr = napi_get_value_string_utf8(env, args[0]);
+  std::string expr = napi_get_value_string_utf8(env, prhs.argv[0]);
 
   // grab the class instance
-  MatlabEngine *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
+  status = napi_unwrap(env, prhs.jsthis, reinterpret_cast<void **>(&prhs.obj));
   assert(status == napi_ok);
 
   // clear output buffer (if enabled)
-  if (obj->output.size())
-    std::fill(obj->output.begin(), obj->output.end(), 0);
+  if (prhs.obj->output.size())
+    std::fill(prhs.obj->output.begin(), prhs.obj->output.end(), 0);
 
   // run MATLAB
-  assert(!engEvalString(obj->ep_, expr.c_str())); // only fails if engine session is invalid
+  assert(!engEvalString(prhs.obj->ep_, expr.c_str())); // only fails if engine session is invalid
 
   // retrieve the output
-  if (obj->output.size())
+  if (prhs.obj->output.size())
   {
     napi_value rval;
-    status = napi_create_string_utf8(env, obj->output.c_str(), NAPI_AUTO_LENGTH, &rval);
+    status = napi_create_string_utf8(env, prhs.obj->output.c_str(), NAPI_AUTO_LENGTH, &rval);
     assert(status == napi_ok);
     return rval;
   }
 
   // return the output displayed on the MATLAB command window as a response the last evalution
   napi_value rval;
-  status = napi_create_string_utf8(env,obj->output.c_str(),NAPI_AUTO_LENGTH, &rval);
+  status = napi_create_string_utf8(env,prhs.obj->output.c_str(),NAPI_AUTO_LENGTH, &rval);
   return rval;
 }
 

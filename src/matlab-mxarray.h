@@ -85,6 +85,7 @@ private:
   // SetN	//Set number of columns in array
 
   static napi_value getNumericDataByRef(napi_env env, napi_callback_info info); // Get mxArray content as a JavaScript data type
+
   napi_value numeric_to_ext_value(napi_env env, const bool get_imag);
   template <typename data_type, typename MxGetFun>
   napi_value numeric_to_ext_typedarray(napi_env env, const napi_typedarray_type type, MxGetFun mxGet);
@@ -110,4 +111,62 @@ private:
   mxArray *from_buffer(napi_env, const napi_value value);      // numeric vector
   mxArray *from_dataview(napi_env, const napi_value value);      // numeric vector
   mxArray *from_array(napi_env env, const napi_value value);        // for cell
+
+static napi_value isDouble(napi_env env, napi_callback_info info);	
+static napi_value isSingle(napi_env env, napi_callback_info info);	
+static napi_value isComplex(napi_env env, napi_callback_info info);	
+static napi_value isNumeric(napi_env env, napi_callback_info info);	
+static napi_value isInt32(napi_env env, napi_callback_info info);	
+static napi_value isUint32(napi_env env, napi_callback_info info);	
+static napi_value isInt16(napi_env env, napi_callback_info info);	
+static napi_value isUint16(napi_env env, napi_callback_info info);	
+static napi_value isInt8(napi_env env, napi_callback_info info);	
+static napi_value isUint8(napi_env env, napi_callback_info info);	
+static napi_value isChar(napi_env env, napi_callback_info info);	
+static napi_value isLogical(napi_env env, napi_callback_info info);	
+// static napi_value isInt64(napi_env env, napi_callback_info info);	
+// static napi_value isUint64(napi_env env, napi_callback_info info);	
+
+// static napi_value isLogicalScalar(napi_env env, napi_callback_info info);	
+// static napi_value isLogicalScalarTrue(napi_env env, napi_callback_info info);	
+
+// static napi_value isEmpty(napi_env env, napi_callback_info info);	
+// static napi_value isScalar(napi_env env, napi_callback_info info);	
+// static napi_value getNumberOfDimensions(napi_env env, napi_callback_info info);	
+// static napi_value getElementSize(napi_env env, napi_callback_info info);	
+// static napi_value getDimensions(napi_env env, napi_callback_info info);	
+// static napi_value setDimensions(napi_env env, napi_callback_info info);	
+// static napi_value getNumberOfElements(napi_env env, napi_callback_info info);	
+// static napi_value calcSingleSubscript(napi_env env, napi_callback_info info);	
+// static napi_value getM(napi_env env, napi_callback_info info);	
+// static napi_value setM(napi_env env, napi_callback_info info);	
+// static napi_value getN(napi_env env, napi_callback_info info);	
+// static napi_value setN(napi_env env, napi_callback_info info);	
+
+// static napi_value getScalar(napi_env env, napi_callback_info info);	
+
+// static napi_value isClass(napi_env env, napi_callback_info info);	
+// static napi_value getClassName(napi_env env, napi_callback_info info);	
+// static napi_value setClassName(napi_env env, napi_callback_info info);	
+// static napi_value getProperty(napi_env env, napi_callback_info info);	
+// static napi_value setProperty(napi_env env, napi_callback_info info);	
+
+// static napi_value isStruct(napi_env env, napi_callback_info info);	
+// static napi_value getField(napi_env env, napi_callback_info info);	
+// static napi_value setField(napi_env env, napi_callback_info info);	
+// static napi_value getNumberOfFields(napi_env env, napi_callback_info info);	
+// static napi_value addField(napi_env env, napi_callback_info info);	
+// static napi_value removeField(napi_env env, napi_callback_info info);	
+
+// static napi_value isCell(napi_env env, napi_callback_info info);	
+// static napi_value getCell(napi_env env, napi_callback_info info);	
+// static napi_value setCell(napi_env env, napi_callback_info info);	
+
+// static napi_value isSparse(napi_env env, napi_callback_info info);	
+// static napi_value getNzmax(napi_env env, napi_callback_info info);	
+// static napi_value setNzmax(napi_env env, napi_callback_info info);	
+// static napi_value getIr(napi_env env, napi_callback_info info);	
+// static napi_value setIr(napi_env env, napi_callback_info info);	
+// static napi_value getJc(napi_env env, napi_callback_info info);	
+// static napi_value setJc(napi_env env, napi_callback_info info);	
 };
