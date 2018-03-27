@@ -21,7 +21,6 @@ MatlabEngine::MatlabEngine(double id)
     auto &session = MatlabEngine::sessions.at(id_);
     ep_ = session.ep;
     ++(session.count); // increment ref count
-
   }
   catch (std::out_of_range &) // no matching session found
   {
@@ -96,30 +95,28 @@ napi_value MatlabEngine::create(napi_env env, napi_callback_info info)
 {
   os << "MatlabEngine::create" << std::endl;
 
-  // check how the function is invoked
+  // retrieve details about the call
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 0, 1);
+
   napi_value target;
   napi_status status = napi_get_new_target(env, info, &target);
   assert(status == napi_ok);
   if (target != nullptr) // Invoked as constructor: `new MatlabEngine(...)`
   {
-    // retrieve details about the call
-    size_t argc = 1; // one optional argument: <double> id
-    napi_value args[1];
-    napi_value jsthis;
-    status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-    assert(status == napi_ok && argc < 2); // only 0 or 1 arguments allowed
-
     // get id argument if given
     double id = 0.0; // default value
-    napi_valuetype valuetype;
-    status = napi_typeof(env, args[0], &valuetype);
-    assert(status == napi_ok);
-    if (valuetype != napi_undefined) // if argument given and is unde
+    if (prhs.argv.size())
     {
-      status = napi_get_value_double(env, args[0], &id);
+      napi_valuetype valuetype;
+      status = napi_typeof(env, prhs.argv[0], &valuetype);
       assert(status == napi_ok);
+      if (valuetype != napi_undefined) // if argument given and is unde
+      {
+        status = napi_get_value_double(env, prhs.argv[0], &id);
+        assert(status == napi_ok);
+      }
     }
-
+  
     // instantiate new class object
     MatlabEngine *obj;
     try
@@ -133,28 +130,20 @@ napi_value MatlabEngine::create(napi_env env, napi_callback_info info)
     obj->env_ = env; // setremember object's environment
 
     // Wraps the new native instance in a JavaScript object.
-    status = napi_wrap(env, jsthis, obj, MatlabEngine::Destructor, nullptr, &obj->wrapper_);
+    status = napi_wrap(env, prhs.jsthis, obj, MatlabEngine::Destructor, nullptr, &obj->wrapper_);
     assert(status == napi_ok);
 
-    return jsthis;
+    return prhs.jsthis;
   }
   else // Invoked as plain function `MatlabEngine(...)`, turn into construct call.
   {
-    size_t argc_ = 1;
-    napi_value args[1];
-    status = napi_get_cb_info(env, info, &argc_, args, nullptr, nullptr);
-    assert(status == napi_ok);
-
-    const size_t argc = 1;
-    napi_value argv[argc] = {args[0]};
-
     napi_value cons;
     status = napi_get_reference_value(env, constructor, &cons);
     assert(status == napi_ok);
 
     // call this function again but invoked as constructor
     napi_value instance;
-    status = napi_new_instance(env, cons, argc, argv, &instance);
+    status = napi_new_instance(env, cons, prhs.argv.size(), prhs.argv.data(), &instance);
     assert(status == napi_ok);
 
     return instance;
@@ -167,7 +156,7 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
   napi_status status;
 
   // retrieve the input arguments
-  auto prhs = napi_get_cb_Info<MatlabEngine>(env, info, 1, 1);
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
 
   // create expression string
   std::string expr = napi_get_value_string_utf8(env, prhs.argv[0]);
@@ -194,7 +183,7 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
 
   // return the output displayed on the MATLAB command window as a response the last evalution
   napi_value rval;
-  status = napi_create_string_utf8(env,prhs.obj->output.c_str(),NAPI_AUTO_LENGTH, &rval);
+  status = napi_create_string_utf8(env, prhs.obj->output.c_str(), NAPI_AUTO_LENGTH, &rval);
   return rval;
 }
 
@@ -203,23 +192,14 @@ napi_value MatlabEngine::get_variable(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 1; // one argument: <string> expr
-  napi_value args[1];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 1); // must be given one 1 argument
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
 
   // create expression string
-  std::string name = napi_get_value_string_utf8(env, args[0]);
-
-  // grab the class instance
-  MatlabEngine *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
+  std::string name = napi_get_value_string_utf8(env, prhs.argv[0]);
 
   // get the variable from MATLAB
-  mxArray *val = engGetVariable(obj->ep_, name.c_str());
+  mxArray *val = engGetVariable(prhs.obj->ep_, name.c_str());
   assert(val != nullptr);
 
   // create mxarray object and return it...
@@ -246,34 +226,32 @@ napi_value MatlabEngine::put_variable(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 2; // one argument: <string> expr
-  napi_value args[2];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 2); // must be given 2 arguments allowed
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 2, 2);
 
   // get variable name
-  std::string name = napi_get_value_string_utf8(env, args[0]);
+  std::string name = napi_get_value_string_utf8(env, prhs.argv[0]);
 
   // get mxArray variable value
   napi_value var_value;
   status = napi_get_reference_value(env, MatlabMxArray::constructor, &var_value);
   bool ok;
-  status = napi_instanceof(env, args[1], var_value, &ok);
-  assert(status == napi_ok && ok);
-  MatlabMxArray *var;
-  status = napi_unwrap(env, args[1], reinterpret_cast<void **>(&var));
+  status = napi_instanceof(env, prhs.argv[1], var_value, &ok);
+  assert(status == napi_ok);
+  if (!ok)
+  {
+    napi_throw_type_error(env, "", "2nd argument must be a MxArray object");
+    return nullptr;
+  }
 
-  // grab the class instance
-  MatlabEngine *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
+  MatlabMxArray *var;
+  status = napi_unwrap(env, prhs.argv[1], reinterpret_cast<void **>(&var));
   assert(status == napi_ok);
 
   // get the variable from MATLAB
   const mxArray *data = var->getMxArray();
-  assert(!engPutVariable(obj->ep_, name.c_str(), var->getMxArray()));
-  
+  assert(!engPutVariable(prhs.obj->ep_, name.c_str(), var->getMxArray()));
+
   return nullptr;
 }
 
@@ -282,20 +260,12 @@ napi_value MatlabEngine::get_visible(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 0; // one argument: <string> expr
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 0);
-
-  // grab the class instance
-  MatlabEngine *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 0, 0);
 
   // get the variable from MATLAB
   bool tf;
-  assert(!engGetVisible(obj->ep_, &tf));
+  assert(!engGetVisible(prhs.obj->ep_, &tf));
 
   // make Node.js Boolean object
   napi_value rval;
@@ -309,24 +279,15 @@ napi_value MatlabEngine::set_visible(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 1; // one argument: <string> expr
-  napi_value args[1];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 1); // must be given 2 arguments allowed
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
 
   // get mxArray variable value
   bool onoff;
-  status = napi_get_value_bool(env, args[0], &onoff);
-
-  // grab the class instance
-  MatlabEngine *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
+  status = napi_get_value_bool(env, prhs.argv[0], &onoff);
 
   // get the variable from MATLAB
-  engSetVisible(obj->ep_, onoff);
+  engSetVisible(prhs.obj->ep_, onoff);
 
   return nullptr;
 }
@@ -337,50 +298,36 @@ napi_value MatlabEngine::set_output_buffer(napi_env env, napi_callback_info info
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 1; // one argument: <string> expr
-  napi_value args[1];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 1); // must be given 2 arguments allowed
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
 
   // get number
   int32_t size;
-  status = napi_get_value_int32(env, args[0], &size);
-  assert(status == napi_ok && size >= 0);
-
-  // grab the class instance
-  MatlabEngine *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
+  status = napi_get_value_int32(env, prhs.argv[0], &size);
+  if (status != napi_ok)
+  {
+    napi_throw_type_error(env, "", "Size argument must be numeric.");
+    return nullptr;
+  }
 
   // update string size
-  obj->output.resize(size+1);
-  engOutputBuffer(obj->ep_, obj->output.data(), size);
+  prhs.obj->output.resize(size + 1);
+  engOutputBuffer(prhs.obj->ep_, prhs.obj->output.data(), size);
 
   return nullptr;
 }
 
-  /**
+/**
  * \brief Retrieve the output buffer from MATLAB
  */
 napi_value MatlabEngine::get_output_buffer(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 1; // one argument: <string> expr
-  napi_value args[1];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 0); // must be given 2 arguments allowed
-
-  // grab the class instance
-  MatlabEngine *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
 
   napi_value rval;
-  status = napi_create_string_utf8(env,obj->output.c_str(),NAPI_AUTO_LENGTH, &rval);
+  status = napi_create_string_utf8(env, prhs.obj->output.c_str(), NAPI_AUTO_LENGTH, &rval);
   return rval;
 }
