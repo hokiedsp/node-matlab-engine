@@ -6,7 +6,6 @@
 
 typedef std::unique_ptr<mxArray, decltype(mxDestroyArray) *> managedMxArray;
 
-
 napi_ref MatlabMxArray::constructor;
 
 MatlabMxArray::MatlabMxArray() : env_(nullptr), wrapper_(nullptr), array_(nullptr) {}
@@ -28,20 +27,42 @@ void MatlabMxArray::Destructor(napi_env env, void *nativeObject, void * /*finali
     name, 0, func, 0, 0, 0, napi_default, 0 \
   }
 
+template <typename T, int N>
+char (&dim_helper(T (&)[N]))[N];
+#define dim(x) (sizeof(dim_helper(x)))
+
 napi_value MatlabMxArray::Init(napi_env env, napi_value exports)
 {
   napi_status status;
 
   // define all the class (static) member functions as node.js array
   napi_property_descriptor properties[] = {
-      DECLARE_NAPI_METHOD("getData", MatlabMxArray::getData), // logical scalar (or array with index arg)
-      DECLARE_NAPI_METHOD("setData", MatlabMxArray::setData)  // numeric scalar (or array with index arg)
-  };
+      DECLARE_NAPI_METHOD("getData", MatlabMxArray::getData),
+      DECLARE_NAPI_METHOD("setData", MatlabMxArray::setData),
+      DECLARE_NAPI_METHOD("getNumericDataByRef", MatlabMxArray::getNumericDataByRef),
+      DECLARE_NAPI_METHOD("isDouble", MatlabMxArray::isDouble),
+      DECLARE_NAPI_METHOD("isSingle", MatlabMxArray::isSingle),
+      DECLARE_NAPI_METHOD("isComplex", MatlabMxArray::isComplex),
+      DECLARE_NAPI_METHOD("isNumeric", MatlabMxArray::isNumeric),
+      DECLARE_NAPI_METHOD("isInt32", MatlabMxArray::isInt32),
+      DECLARE_NAPI_METHOD("isUint32", MatlabMxArray::isUint32),
+      DECLARE_NAPI_METHOD("isInt16", MatlabMxArray::isInt16),
+      DECLARE_NAPI_METHOD("isUint16", MatlabMxArray::isUint16),
+      DECLARE_NAPI_METHOD("isInt8", MatlabMxArray::isInt8),
+      DECLARE_NAPI_METHOD("isUint8", MatlabMxArray::isUint8),
+      DECLARE_NAPI_METHOD("isChar", MatlabMxArray::isChar),
+      DECLARE_NAPI_METHOD("isLogical", MatlabMxArray::isLogical),
+      DECLARE_NAPI_METHOD("isInt64", MatlabMxArray::isInt64),
+      DECLARE_NAPI_METHOD("isUint64", MatlabMxArray::isUint64),
+      DECLARE_NAPI_METHOD("isEmpty", MatlabMxArray::isEmpty),
+      DECLARE_NAPI_METHOD("isScalar", MatlabMxArray::isScalar),
+      DECLARE_NAPI_METHOD("isStruct", MatlabMxArray::isStruct),
+      DECLARE_NAPI_METHOD("isCell", MatlabMxArray::isCell)};
 
   //
   napi_value cons;
   status = napi_define_class(env, "MatlabMxArray", NAPI_AUTO_LENGTH, MatlabMxArray::create,
-                             nullptr, 2, properties, &cons);
+                             nullptr, dim(properties), properties, &cons);
   assert(status == napi_ok);
 
   status = napi_create_reference(env, cons, 1, &MatlabMxArray::constructor);
@@ -57,11 +78,8 @@ napi_value MatlabMxArray::create(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-  // retrieve details about the call
-  size_t argc = 0; // one optional argument: <double> id
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 0); // no argument allowed
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 0, 1);
 
   // check how the function is invoked
   napi_value target;
@@ -74,11 +92,15 @@ napi_value MatlabMxArray::create(napi_env env, napi_callback_info info)
     obj->env_ = env; // setremember object's environment
 
     // Wraps the new native instance in a JavaScript object.
-    status = napi_wrap(env, jsthis, reinterpret_cast<void *>(obj),
+    status = napi_wrap(env, prhs.jsthis, reinterpret_cast<void *>(obj),
                        MatlabMxArray::Destructor, nullptr, &obj->wrapper_);
     assert(status == napi_ok);
 
-    return jsthis;
+    // if source napi_value given, populate
+    if (prhs.argv.size())
+      obj->from_value(env, prhs.argv[0]);
+
+    return prhs.jsthis;
   }
   else // Invoked as plain function `MatlabMxArray(...)`, turn into construct call.
   {
@@ -88,7 +110,7 @@ napi_value MatlabMxArray::create(napi_env env, napi_callback_info info)
 
     // call this function again but invoked as constructor
     napi_value instance;
-    status = napi_new_instance(env, cons, 0, nullptr, &instance);
+    status = napi_new_instance(env, cons, prhs.argv.size(), prhs.argv.data(), &instance);
     assert(status == napi_ok);
 
     return instance;
@@ -101,20 +123,11 @@ const mxArray *MatlabMxArray::getMxArray()
 }
 
 // data = mx_array.getData() Get mxArray content as a JavaScript data type
-napi_value MatlabMxArray::getData(napi_env env, napi_callback_info info) 
+napi_value MatlabMxArray::getData(napi_env env, napi_callback_info info)
 {
-  // retrieve details about the call
-  size_t argc = 0; // one argument: <string> expr
-  napi_value jsthis;
-  napi_status status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 0);
-
-  // grab the class instance
-  MatlabMxArray *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
-  
-  return obj->to_value(env, obj->array_);
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  return prhs.obj->to_value(env, prhs.obj->array_);
 }
 
 bool MatlabMxArray::setMxArray(mxArray *array) // will be responsible to destroy array
@@ -122,7 +135,7 @@ bool MatlabMxArray::setMxArray(mxArray *array) // will be responsible to destroy
   // mxArray cannot have anything referencing to it
   if (arraybuffers_.size())
     return true;
-  
+
   // destroy previous array
   if (array_)
     mxDestroyArray(array_);
@@ -134,39 +147,30 @@ bool MatlabMxArray::setMxArray(mxArray *array) // will be responsible to destroy
 }
 
 // data = mx_array.setData(value) Set mxArray content from JavaScript object
-napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info) 
+napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info)
 {
   napi_status status;
 
-   // retrieve details about the call
-  size_t argc = 1; // one argument: <string> expr
-  napi_value args[1];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 1);
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 1, 1);
 
-  // grab the class instance
-  MatlabMxArray *obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-  assert(status == napi_ok);
-  
   // mxArray cannot have anything referencing to it
-  if (obj->arraybuffers_.size())
+  if (prhs.obj->arraybuffers_.size())
   {
-    status = napi_throw_error(env,"","Cannot assign new data to the MxArray instance as it is currently referenced by at least one Node.js value.");
-    assert(status==napi_ok);
+    status = napi_throw_error(env, "", "Cannot assign new data to the MxArray instance as it is currently referenced by at least one Node.js value.");
+    assert(status == napi_ok);
     return nullptr;
   };
-  
+
   // convert the given Node.js value to mxArray
-  mxArray *new_array = obj->from_value(env, args[0]);
+  mxArray *new_array = prhs.obj->from_value(env, prhs.argv[0]);
 
   // destroy previous array
-  if (obj->array_)
-    mxDestroyArray(obj->array_);
+  if (prhs.obj->array_)
+    mxDestroyArray(prhs.obj->array_);
 
   // assign the new array
-  obj->array_ = new_array;
+  prhs.obj->array_ = new_array;
 
   return nullptr;
 }
@@ -179,34 +183,27 @@ napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info)
  * Get mxArray content as external-data typed array so that the mxArray data can be
  * modified directly from JavaScript
  */
-napi_value MatlabMxArray::getNumericDataByRef(napi_env env, napi_callback_info info) 
+napi_value MatlabMxArray::getNumericDataByRef(napi_env env, napi_callback_info info)
 {
+  napi_status status;
+
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 1);
+
   // retrieve details about the call
-  napi_value jsthis;
-  size_t argc = 1; // optional one argument: <Boolean> getImag
-  napi_value args[1];
-  napi_status status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  assert(status == napi_ok && argc == 0);
+  bool get_imag = prhs.argv.size();
+  if (get_imag)
+  {
+    // coarse the given node.js object to string type
+    status = napi_get_value_bool(env, prhs.argv[0], &get_imag);
+    if (status != napi_ok)
+    {
+      napi_throw_type_error(env, "", "get_imag must be coercable to Boolean type.");
+      return nullptr;
+    }
+  }
 
-   // retrieve details about the call
-   bool get_imag = argc>0;
-   if (get_imag)
-   {
-     // coarse the given node.js object to string type
-     status = napi_get_value_bool(env, args[0], &get_imag);
-     if (status != napi_ok)
-     {
-       napi_throw_type_error(env, "", "get_imag must be coercable to Boolean type.");
-       return nullptr;
-     }
-   }
-
-   // grab the class instance
-   MatlabMxArray *obj;
-   status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-   assert(status == napi_ok);
-
-   return obj->numeric_to_ext_value(env, get_imag);
+  return prhs.obj->numeric_to_ext_value(env, get_imag);
 }
 
 napi_value MatlabMxArray::numeric_to_ext_value(napi_env env, const bool get_imag)
@@ -225,7 +222,7 @@ napi_value MatlabMxArray::numeric_to_ext_value(napi_env env, const bool get_imag
     {
       mxGet = mxGetImagData;
       if (!mxIsComplex(array_)) // if imaginary part does not exist, allocate
-        mxSetImagData(array_, mxCalloc(mxGetNumberOfElements(array_),mxGetElementSize(array_)));
+        mxSetImagData(array_, mxCalloc(mxGetNumberOfElements(array_), mxGetElementSize(array_)));
     }
 
     switch (mxGetClassID(array_))
@@ -378,14 +375,14 @@ napi_value MatlabMxArray::to_typedarray(napi_env env, const napi_typedarray_type
 {
   napi_status status;
   napi_value value, arraybuffer;
-  
+
   data_type *data;
   size_t nelem = mxGetNumberOfElements(array);
-  status = napi_create_arraybuffer(env, nelem * sizeof(data_type), &reinterpret_cast<void*>(data), &arraybuffer);
-  assert(status==napi_ok);
+  status = napi_create_arraybuffer(env, nelem * sizeof(data_type), &reinterpret_cast<void *>(data), &arraybuffer);
+  assert(status == napi_ok);
 
   // copy data
-  std::copy_n(reinterpret_cast<data_type*>(mxGet(array)), nelem, data);
+  std::copy_n(reinterpret_cast<data_type *>(mxGet(array)), nelem, data);
 
   // create typed array
   status = napi_create_typedarray(env, type, mxGetNumberOfElements(array), arraybuffer, 0, &value);
@@ -403,13 +400,13 @@ napi_value MatlabMxArray::from_numeric(napi_env env, const mxArray *array, const
     assert(status == napi_ok);
 
     status = napi_set_named_property(env, rval, "re",
-                                     to_typedarray<data_type, 
-                                     decltype(mxGetData) *>(env, type, array, mxGetData));
+                                     to_typedarray<data_type,
+                                                   decltype(mxGetData) *>(env, type, array, mxGetData));
     assert(status == napi_ok);
 
     status = napi_set_named_property(env, rval, "im",
-                                     to_typedarray<data_type, 
-                                     decltype(mxGetImagData) *>(env, type, array, mxGetImagData));
+                                     to_typedarray<data_type,
+                                                   decltype(mxGetImagData) *>(env, type, array, mxGetImagData));
     assert(status == napi_ok);
   }
   else if (mxIsDouble(array)) // return a typedarray object pointing directly at mxArray data
@@ -545,8 +542,6 @@ mxArray *MatlabMxArray::from_value(napi_env env, const napi_value value) // work
   }
 }
 
-
-
 mxArray *MatlabMxArray::from_object(napi_env env, const napi_value value)
 {
   bool is_type;
@@ -639,7 +634,7 @@ mxArray *MatlabMxArray::from_object(napi_env env, const napi_value value)
   return rval;
 }
 
-mxArray *MatlabMxArray::from_array(napi_env env, const napi_value value)        // for cell
+mxArray *MatlabMxArray::from_array(napi_env env, const napi_value value) // for cell
 {
   uint32_t length;
   napi_status status = napi_get_array_length(env, value, &length);
@@ -724,38 +719,38 @@ mxArray *MatlabMxArray::from_typedarray(napi_env env, const napi_value value) //
   return rval;
 }
 
-mxArray *MatlabMxArray::from_arraybuffer(napi_env env, const napi_value value)     // numeric vector
+mxArray *MatlabMxArray::from_arraybuffer(napi_env env, const napi_value value) // numeric vector
 {
   napi_status status;
   void *data;
   size_t byte_length;
   status = napi_get_arraybuffer_info(env, value, &data, &byte_length);
-  assert(status==napi_ok);
+  assert(status == napi_ok);
 
   mxArray *rval = mxCreateNumericMatrix(byte_length, 1, mxUINT8_CLASS, mxREAL);
   std::copy_n((uint8_t *)data, byte_length, (uint8_t *)mxGetData(rval));
   return rval;
 }
 
-mxArray *MatlabMxArray::from_buffer(napi_env env, const napi_value value)      // numeric vector
+mxArray *MatlabMxArray::from_buffer(napi_env env, const napi_value value) // numeric vector
 {
   void *data;
   size_t length;
   napi_status status = napi_get_buffer_info(env, value, &data, &length);
-  assert(status==napi_ok);
+  assert(status == napi_ok);
   mxArray *rval = mxCreateNumericMatrix(length, 1, mxUINT8_CLASS, mxREAL);
   std::copy_n((uint8_t *)data, length, (uint8_t *)mxGetData(rval));
   return rval;
 }
 
-mxArray *MatlabMxArray::from_dataview(napi_env env, const napi_value value)      // numeric vector
+mxArray *MatlabMxArray::from_dataview(napi_env env, const napi_value value) // numeric vector
 {
   size_t byte_length;
   void *data;
   napi_value arraybuffer;
   size_t byte_offset;
   napi_status status = napi_get_dataview_info(env, value, &byte_length, &data, &arraybuffer, &byte_offset);
-  assert(status==napi_ok);
+  assert(status == napi_ok);
   mxArray *rval = mxCreateNumericMatrix(byte_length, 1, mxUINT8_CLASS, mxREAL);
   std::copy_n((uint8_t *)data, byte_length, (uint8_t *)mxGetData(rval));
   return rval;
@@ -765,25 +760,198 @@ mxArray *MatlabMxArray::from_dataview(napi_env env, const napi_value value)     
 
 napi_value MatlabMxArray::isDouble(napi_env env, napi_callback_info info)
 {
- // retrieve details about the call
-  napi_value jsthis;
-  size_t argc = 0; // optional one argument: <Boolean> getImag
-  napi_status status = napi_get_cb_info(env, info, &argc, nullptr, &jsthis, nullptr);
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsDouble(prhs.obj->array_), &rval);
   assert(status == napi_ok);
-  if (argc != 0)
-  {
-    napi_throw_type_error(env, "", "isDouble takes no argument.");
-    return nullptr;
-  }
+  return rval;
+}
 
-   // grab the class instance
-   MatlabMxArray *obj;
-   status = napi_unwrap(env, jsthis, reinterpret_cast<void **>(&obj));
-   assert(status == napi_ok);
+napi_value MatlabMxArray::isSingle(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
 
-   napi_value rval;
-   napi_get_boolean(env, mxIsDouble(obj->array_), &rval);
-   assert(status == napi_ok);
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsSingle(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
 
-   return rval;
+napi_value MatlabMxArray::isComplex(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsComplex(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isNumeric(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsNumeric(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isInt32(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsInt32(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isUint32(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsUint32(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isInt16(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsInt16(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isUint16(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsUint16(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isInt8(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsInt8(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isUint8(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsUint8(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isChar(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsChar(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isLogical(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsLogical(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isInt64(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsInt64(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isUint64(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsUint64(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isEmpty(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsEmpty(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isScalar(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsScalar(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isStruct(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsStruct(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
+}
+
+napi_value MatlabMxArray::isCell(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+
+  napi_value rval;
+  napi_status status = napi_get_boolean(env, mxIsCell(prhs.obj->array_), &rval);
+  assert(status == napi_ok);
+  return rval;
 }
