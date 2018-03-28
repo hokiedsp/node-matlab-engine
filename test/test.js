@@ -32,6 +32,7 @@ console.log(session.getLastOutput());
 var x = session.getVariable("x");
 xdata = x.getData();
 console.log( xdata ); // 5
+console.log( x.getDimensions());
 
 xdata[0] = 4;
 console.log( x.getData() ); // 5

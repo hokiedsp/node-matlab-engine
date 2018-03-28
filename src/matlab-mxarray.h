@@ -131,25 +131,21 @@ private:
   static napi_value isStruct(napi_env env, napi_callback_info info);
   static napi_value isCell(napi_env env, napi_callback_info info);
 
-  // static napi_value isLogicalScalar(napi_env env, napi_callback_info info);
-  // static napi_value isLogicalScalarTrue(napi_env env, napi_callback_info info);
+  static napi_value getNumberOfDimensions(napi_env env, napi_callback_info info);
+  static napi_value getElementSize(napi_env env, napi_callback_info info);
+  static napi_value getDimensions(napi_env env, napi_callback_info info);
+  static napi_value getNumberOfElements(napi_env env, napi_callback_info info);
+  static napi_value getM(napi_env env, napi_callback_info info);
+  static napi_value getN(napi_env env, napi_callback_info info);
+  static napi_value getNumberOfFields(napi_env env, napi_callback_info info);
 
-  // static napi_value getNumberOfDimensions(napi_env env, napi_callback_info info);
-  // static napi_value getElementSize(napi_env env, napi_callback_info info);
-  // static napi_value getDimensions(napi_env env, napi_callback_info info);
   // static napi_value setDimensions(napi_env env, napi_callback_info info);
-  // static napi_value getNumberOfElements(napi_env env, napi_callback_info info);
   // static napi_value calcSingleSubscript(napi_env env, napi_callback_info info);
-  // static napi_value getM(napi_env env, napi_callback_info info);
   // static napi_value setM(napi_env env, napi_callback_info info);
-  // static napi_value getN(napi_env env, napi_callback_info info);
   // static napi_value setN(napi_env env, napi_callback_info info);
-
-  // static napi_value getScalar(napi_env env, napi_callback_info info);
 
   // static napi_value getField(napi_env env, napi_callback_info info);
   // static napi_value setField(napi_env env, napi_callback_info info);
-  // static napi_value getNumberOfFields(napi_env env, napi_callback_info info);
   // static napi_value addField(napi_env env, napi_callback_info info);
   // static napi_value removeField(napi_env env, napi_callback_info info);
 
