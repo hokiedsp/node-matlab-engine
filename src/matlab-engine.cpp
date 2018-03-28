@@ -157,6 +157,7 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
+  if (!prhs.obj) return nullptr;
 
   // create expression string
   std::string expr = napi_get_value_string_utf8(env, prhs.argv[0]);
@@ -194,6 +195,7 @@ napi_value MatlabEngine::get_variable(napi_env env, napi_callback_info info)
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
+  if (!prhs.obj) return nullptr;
 
   // create expression string
   std::string name = napi_get_value_string_utf8(env, prhs.argv[0]);
@@ -228,6 +230,7 @@ napi_value MatlabEngine::put_variable(napi_env env, napi_callback_info info)
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 2, 2);
+  if (!prhs.obj) return nullptr;
 
   // get variable name
   std::string name = napi_get_value_string_utf8(env, prhs.argv[0]);
@@ -262,6 +265,7 @@ napi_value MatlabEngine::get_visible(napi_env env, napi_callback_info info)
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   // get the variable from MATLAB
   bool tf;
@@ -281,6 +285,7 @@ napi_value MatlabEngine::set_visible(napi_env env, napi_callback_info info)
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
+  if (!prhs.obj) return nullptr;
 
   // get mxArray variable value
   bool onoff;
@@ -300,6 +305,7 @@ napi_value MatlabEngine::set_output_buffer(napi_env env, napi_callback_info info
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
+  if (!prhs.obj) return nullptr;
 
   // get number
   int32_t size;
@@ -325,9 +331,15 @@ napi_value MatlabEngine::get_output_buffer(napi_env env, napi_callback_info info
   napi_status status;
 
   // retrieve the input arguments
-  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
-  status = napi_create_string_utf8(env, prhs.obj->output.c_str(), NAPI_AUTO_LENGTH, &rval);
+  if (prhs.obj->output[0]=='\0')
+    status = napi_get_null(env,&rval);
+  else
+    status = napi_create_string_utf8(env, prhs.obj->output.c_str(), NAPI_AUTO_LENGTH, &rval);
+  assert(status==napi_ok);
+  
   return rval;
 }

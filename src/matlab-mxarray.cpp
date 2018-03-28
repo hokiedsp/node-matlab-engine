@@ -79,7 +79,7 @@ napi_value MatlabMxArray::create(napi_env env, napi_callback_info info)
   napi_status status;
 
   // retrieve the input arguments
-  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 0, 1);
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 1);
 
   // check how the function is invoked
   napi_value target;
@@ -127,7 +127,7 @@ napi_value MatlabMxArray::getData(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
-  return prhs.obj->to_value(env, prhs.obj->array_);
+  return prhs.obj?prhs.obj->to_value(env, prhs.obj->array_):nullptr;
 }
 
 bool MatlabMxArray::setMxArray(mxArray *array) // will be responsible to destroy array
@@ -153,6 +153,7 @@ napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info)
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 1, 1);
+  if (!prhs.obj) return nullptr;
 
   // mxArray cannot have anything referencing to it
   if (prhs.obj->arraybuffers_.size())
@@ -189,6 +190,7 @@ napi_value MatlabMxArray::getNumericDataByRef(napi_env env, napi_callback_info i
 
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 1);
+  if (!prhs.obj) return nullptr;
 
   // retrieve details about the call
   bool get_imag = prhs.argv.size();
@@ -762,6 +764,7 @@ napi_value MatlabMxArray::isDouble(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsDouble(prhs.obj->array_), &rval);
@@ -773,6 +776,7 @@ napi_value MatlabMxArray::isSingle(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsSingle(prhs.obj->array_), &rval);
@@ -784,6 +788,7 @@ napi_value MatlabMxArray::isComplex(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsComplex(prhs.obj->array_), &rval);
@@ -795,6 +800,7 @@ napi_value MatlabMxArray::isNumeric(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsNumeric(prhs.obj->array_), &rval);
@@ -806,6 +812,7 @@ napi_value MatlabMxArray::isInt32(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsInt32(prhs.obj->array_), &rval);
@@ -817,6 +824,7 @@ napi_value MatlabMxArray::isUint32(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsUint32(prhs.obj->array_), &rval);
@@ -828,6 +836,7 @@ napi_value MatlabMxArray::isInt16(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsInt16(prhs.obj->array_), &rval);
@@ -839,6 +848,7 @@ napi_value MatlabMxArray::isUint16(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsUint16(prhs.obj->array_), &rval);
@@ -850,6 +860,7 @@ napi_value MatlabMxArray::isInt8(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsInt8(prhs.obj->array_), &rval);
@@ -861,6 +872,7 @@ napi_value MatlabMxArray::isUint8(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsUint8(prhs.obj->array_), &rval);
@@ -872,6 +884,7 @@ napi_value MatlabMxArray::isChar(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsChar(prhs.obj->array_), &rval);
@@ -883,6 +896,7 @@ napi_value MatlabMxArray::isLogical(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsLogical(prhs.obj->array_), &rval);
@@ -894,6 +908,7 @@ napi_value MatlabMxArray::isInt64(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsInt64(prhs.obj->array_), &rval);
@@ -905,6 +920,7 @@ napi_value MatlabMxArray::isUint64(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsUint64(prhs.obj->array_), &rval);
@@ -916,6 +932,7 @@ napi_value MatlabMxArray::isEmpty(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsEmpty(prhs.obj->array_), &rval);
@@ -927,6 +944,7 @@ napi_value MatlabMxArray::isScalar(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsScalar(prhs.obj->array_), &rval);
@@ -938,6 +956,7 @@ napi_value MatlabMxArray::isStruct(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsStruct(prhs.obj->array_), &rval);
@@ -949,6 +968,7 @@ napi_value MatlabMxArray::isCell(napi_env env, napi_callback_info info)
 {
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
 
   napi_value rval;
   napi_status status = napi_get_boolean(env, mxIsCell(prhs.obj->array_), &rval);
