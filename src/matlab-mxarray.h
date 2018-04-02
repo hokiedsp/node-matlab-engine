@@ -139,7 +139,7 @@ private:
   static napi_value getN(napi_env env, napi_callback_info info);
   static napi_value getNumberOfFields(napi_env env, napi_callback_info info);
 
-  // static napi_value setDimensions(napi_env env, napi_callback_info info);
+  static napi_value setDimensions(napi_env env, napi_callback_info info);
   // static napi_value calcSingleSubscript(napi_env env, napi_callback_info info);
   // static napi_value setM(napi_env env, napi_callback_info info);
   // static napi_value setN(napi_env env, napi_callback_info info);

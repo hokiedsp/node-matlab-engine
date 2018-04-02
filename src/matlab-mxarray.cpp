@@ -61,6 +61,7 @@ napi_value MatlabMxArray::Init(napi_env env, napi_value exports)
       DECLARE_NAPI_METHOD("getNumberOfDimensions", MatlabMxArray::getNumberOfDimensions),
       DECLARE_NAPI_METHOD("getElementSize", MatlabMxArray::getElementSize),
       DECLARE_NAPI_METHOD("getDimensions", MatlabMxArray::getDimensions),
+      DECLARE_NAPI_METHOD("setDimensions", MatlabMxArray::setDimensions),
       DECLARE_NAPI_METHOD("getNumberOfElements", MatlabMxArray::getNumberOfElements),
       DECLARE_NAPI_METHOD("getM", MatlabMxArray::getM),
       DECLARE_NAPI_METHOD("getN", MatlabMxArray::getN),
@@ -1099,7 +1100,7 @@ napi_value MatlabMxArray::getDimensions(napi_env env, napi_callback_info info)
     napi_value elem;
     status = napi_create_double(env, (double)dims[n], &elem);
     assert(status == napi_ok);
-    
+
     napi_set_element(env, rval, n, elem);
     assert(status == napi_ok);
 
@@ -1108,3 +1109,73 @@ napi_value MatlabMxArray::getDimensions(napi_env env, napi_callback_info info)
   }
   return rval;
 }
+
+napi_value MatlabMxArray::setDimensions(napi_env env, napi_callback_info info)
+{
+  napi_status status;
+
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 1, 1);
+  if (!prhs.obj)
+    return nullptr;
+
+  uint32_t ndims;
+  
+  // get new dimensions
+  status = napi_get_array_length(env, prhs.argv[0], &ndims);
+  if (status != napi_ok)
+  {
+    napi_throw_type_error(env, "", "Dimensions must be given as an array.");
+    return nullptr;
+  }
+
+  std::vector<mwSize> dims(ndims, 1);
+  mwSize nelems = 1;
+  for (int n = 0; n < dims.size(); ++n)
+  {
+    napi_handle_scope scope;
+    status = napi_open_handle_scope(env, &scope);
+    assert(status == napi_ok);
+
+    napi_value elem;
+    status = napi_get_element(env, prhs.argv[0], n, &elem);
+
+    uint32_t val;
+    status = napi_get_value_uint32(env,elem, &val);
+    if (status!=napi_ok)
+    {
+      napi_throw_type_error(env, "", "Dimensions must be non-negative integers.");
+      return nullptr;
+    }
+
+    dims[n] = val;
+    nelems *= val;
+
+    status = napi_close_handle_scope(env, scope);
+    assert(status == napi_ok);
+  }
+
+  // validate size
+  if (nelems!=mxGetNumberOfElements(prhs.obj->array_))
+  {
+    napi_throw_type_error(env, "", "Dimensions must yield the number of elements of the array.");
+    return nullptr;
+  }
+
+  // set it
+  mxSetDimensions(prhs.obj->array_, dims.data(), dims.size());
+
+  return nullptr;
+}
+
+// napi_value MatlabMxArray::calcSingleSubscript(napi_env env, napi_callback_info info)
+// {
+//   napi_status status;
+
+//   // retrieve the input arguments
+//   auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 1, 1);
+//   if (!prhs.obj)
+//     return nullptr;
+
+//   mwIndex index = mxCalcSingleSubscript(prhs.obj->array_, mwSize nsubs, mwIndex *subs);
+// }
