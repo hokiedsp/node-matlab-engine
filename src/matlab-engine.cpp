@@ -68,9 +68,12 @@ napi_value MatlabEngine::Init(napi_env env, napi_value exports)
 
   // define all the class (static) member functions as node.js array
   napi_property_descriptor properties[] = {
+      DECLARE_NAPI_METHOD("close", MatlabEngine::close),
       DECLARE_NAPI_METHOD("evaluate", MatlabEngine::evaluate),
       DECLARE_NAPI_METHOD("getVariable", MatlabEngine::get_variable),
+      DECLARE_NAPI_METHOD("getVariableValue", MatlabEngine::get_variable_value),
       DECLARE_NAPI_METHOD("putVariable", MatlabEngine::put_variable),
+      DECLARE_NAPI_METHOD("putVariableValue", MatlabEngine::put_variable_value),
       DECLARE_NAPI_METHOD("getVisible", MatlabEngine::get_visible),
       DECLARE_NAPI_METHOD("setVisible", MatlabEngine::set_visible),
       DECLARE_NAPI_METHOD("setOutputBufferSize", MatlabEngine::set_output_buffer),
@@ -79,7 +82,7 @@ napi_value MatlabEngine::Init(napi_env env, napi_value exports)
   //
   napi_value cons;
   status = napi_define_class(env, "MatlabEngine", NAPI_AUTO_LENGTH, MatlabEngine::create,
-                             nullptr, 7, properties, &cons);
+                             nullptr, 10, properties, &cons);
   assert(status == napi_ok);
 
   status = napi_create_reference(env, cons, 1, &MatlabEngine::constructor);
@@ -150,6 +153,33 @@ napi_value MatlabEngine::create(napi_env env, napi_callback_info info)
   }
 }
 
+/**
+ * \brief Close existing session and destroys the native MatlabEngine object
+ * 
+ * \param[in] env  The environment that the API is invoked under.
+ * \param[in] info The callback info passed into the callback function.
+ * \returns napi_value representing the JavaScript object returned, which in 
+ *          this case is the constructed object.
+ */
+napi_value MatlabEngine::close(napi_env env, napi_callback_info info)
+{
+  napi_status status;
+
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 0, 0);
+  if (!prhs.obj) return nullptr;
+
+  // delete the native object
+  delete prhs.obj;
+
+  // remove the C++ object from Node wrapper object
+  status = napi_remove_wrap(env, prhs.jsthis, reinterpret_cast<void **>(&prhs.obj));
+  assert(status == napi_ok);
+
+  return nullptr;
+}
+
+
 // MatlabEngine.evaluate(expr)
 napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
 {
@@ -161,10 +191,6 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
 
   // create expression string
   std::string expr = napi_get_value_string_utf8(env, prhs.argv[0]);
-
-  // grab the class instance
-  status = napi_unwrap(env, prhs.jsthis, reinterpret_cast<void **>(&prhs.obj));
-  assert(status == napi_ok);
 
   // clear output buffer (if enabled)
   if (prhs.obj->output.size())
@@ -186,6 +212,18 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
   napi_value rval;
   status = napi_create_string_utf8(env, prhs.obj->output.c_str(), NAPI_AUTO_LENGTH, &rval);
   return rval;
+}
+
+// val = getVariable(name) returns mxArray-wrapper object
+napi_value MatlabEngine::get_variable_value(napi_env env, napi_callback_info info)
+{
+  napi_value array = MatlabEngine::get_variable(env,info);
+  // grab the class instance if possible. Otherwise, obj=null
+  MxArray *obj(nullptr);
+  napi_unwrap(env, array, reinterpret_cast<void **>(&obj));
+  napi_value value = obj->getMxArray();
+  MxArray::Destructor(obj);
+  return value;
 }
 
 // val = getVariable(name) returns mxArray-wrapper object
@@ -220,6 +258,21 @@ napi_value MatlabEngine::get_variable(napi_env env, napi_callback_info info)
   array->setMxArray(val); // responsible to delete mxArray
 
   return instance;
+}
+
+// obj.putVariable(name, val) place the given node.js mxArray object onto MATLAB
+// workspace (values will not be synced)
+napi_value MatlabEngine::put_variable_value(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 2, 2);
+  if (!prhs.obj) return nullptr;
+
+  // create new MxArray object
+  napi_value array = MxArray::Create(env,prhs.argv[1]);
+
+  // put the variable
+  prhs.obj->put_variable(env, array);
 }
 
 // obj.putVariable(name, val) place the given node.js mxArray object onto MATLAB

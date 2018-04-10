@@ -7,6 +7,12 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Debug installation",
+      "args": ["install.js"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Debug in Node.js",
       "args": ["--expose-gc", "test/test.js"]
     },

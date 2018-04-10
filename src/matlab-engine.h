@@ -51,6 +51,16 @@ private:
  */
   static napi_value create(napi_env env, napi_callback_info info);
 
+/**
+ * \brief Close existing session and destroys the native MatlabEngine object
+ * 
+ * \param[in] env  The environment that the API is invoked under.
+ * \param[in] info The callback info passed into the callback function.
+ * \returns napi_value representing the JavaScript object returned, which in 
+ *          this case is the constructed object.
+ */
+  static napi_value close(napi_env env, napi_callback_info info);
+
   /**
  * \brief Evluates MATLAB expression
  */
@@ -64,9 +74,21 @@ private:
   static napi_value get_variable(napi_env env, napi_callback_info info);
 
   /**
+ * \brief Copy variable from MATLAB engine workspace
+ * 
+ * An object factory function
+ */
+  static napi_value get_variable_value(napi_env env, napi_callback_info info);
+
+  /**
  * \brief Put variable into MATLAB engine workspace
  */
   static napi_value put_variable(napi_env env, napi_callback_info info);
+
+  /**
+ * \brief Put variable into MATLAB engine workspace
+ */
+  static napi_value put_variable_value(napi_env env, napi_callback_info info);
 
   /**
  * \brief Determine visibility of MATLAB engine session

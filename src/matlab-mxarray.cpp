@@ -82,7 +82,7 @@ napi_value MatlabMxArray::Init(napi_env env, napi_value exports)
 }
 
 // create new instance of the class
-napi_value MatlabMxArray::create(napi_env env, napi_callback_info info)
+napi_value MatlabMxArray::Create(napi_env env, napi_callback_info info)
 {
   napi_status status;
 

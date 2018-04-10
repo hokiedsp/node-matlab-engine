@@ -27,11 +27,24 @@ public:
 
   static napi_value Init(napi_env env, napi_value exports);
 
+  /**
+ * \brief Create new MatlabMxArray object
+ * 
+ * javascript signature
+ *    new matlab.MxArray()
+ * 
+ * \param[in] env  The environment that the API is invoked under.
+ * \param[in] info The callback info passed into the callback function.
+ * \returns napi_value representing the JavaScript object returned, which in 
+ *          this case is the constructed object.
+ */
+  static napi_value Create(napi_env env, napi_callback_info info);
+
   static void Destructor(napi_env env, void *nativeObject, void *finalize_hint);
 
   bool setMxArray(mxArray *array); // will be responsible to destroy array
   const mxArray *getMxArray();     //
-
+  
 private:
   mxArray *array_; // data array
   std::map<void *, napi_ref> arraybuffers_;
@@ -56,19 +69,6 @@ private:
  * Release the assigned MATLAB session
  */
   ~MatlabMxArray();
-
-  /**
- * \brief Create new MatlabMxArray object
- * 
- * javascript signature
- *    new matlab.MxArray()
- * 
- * \param[in] env  The environment that the API is invoked under.
- * \param[in] info The callback info passed into the callback function.
- * \returns napi_value representing the JavaScript object returned, which in 
- *          this case is the constructed object.
- */
-  static napi_value create(napi_env env, napi_callback_info info);
 
   /**
  * \brief Evluates MATLAB expression

@@ -1,19 +1,29 @@
 {
   "name": "matlab-engine",
   "version": "0.0.1",
-  "description": "C++ addon to perform computation in Matlab",
-  "main": "test/test.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/hokiedsp/node-matlab-engine"
+  "author": {
+    "name": "Takeshi Ikuma"
   },
+  "description": "Native addon to perform computation in Matlab",
   "keywords": [
     "c/c++ addon",
     "matlab"
   ],
-  "devDependencies": {},
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hokiedsp/node-matlab-engine"
+  },
+  "main": "index.js",
+  "scripts": {
+    "install": "ncmake rebuild",
+    "clean": "ncmake distclean"
+  },
+  "devDependencies": {
+    "node-cmake": "file:../node-cmake"
+  },
   "dependencies": {
     "bindings": "^1.3.0",
-    "node-addon-api": "^1.2.0"
+    "which": "^1.3.0"
   }
 }

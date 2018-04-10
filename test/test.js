@@ -45,6 +45,7 @@ console.log( session.getVariable("y").getData() ); // 5
 session.evaluate("s = struct('x',x,'y',y)");
 console.log( session.getVariable("s").getData() ); // 5
 
+session.close();
 
 delete session;
 delete x;
