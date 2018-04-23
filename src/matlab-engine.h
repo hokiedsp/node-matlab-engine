@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "matlab-mxarray.h"
+
 #include <engine.h>
 #include <node_api.h>
 
@@ -32,16 +34,16 @@ private:
  * 
  * \param[in] session id number to support multiple MATLAB sessions
  */
-  explicit MatlabEngine(double id_ = 0);
+  explicit MatlabEngine(napi_env env, napi_value jsthis, double id_ = 0);
 
-   /**
+  /**
  * \brief Destrctor
  * 
  * Release the assigned MATLAB session
  */
- ~MatlabEngine();
+  ~MatlabEngine();
 
-/**
+  /**
  * \brief Create new MatlabEngine object
  * 
  * \param[in] env  The environment that the API is invoked under.
@@ -51,7 +53,7 @@ private:
  */
   static napi_value create(napi_env env, napi_callback_info info);
 
-/**
+  /**
  * \brief Close existing session and destroys the native MatlabEngine object
  * 
  * \param[in] env  The environment that the API is invoked under.
@@ -73,6 +75,8 @@ private:
  */
   static napi_value get_variable(napi_env env, napi_callback_info info);
 
+  napi_value get_variable(napi_env env, napi_value jsname);
+
   /**
  * \brief Copy variable from MATLAB engine workspace
  * 
@@ -84,6 +88,16 @@ private:
  * \brief Put variable into MATLAB engine workspace
  */
   static napi_value put_variable(napi_env env, napi_callback_info info);
+
+  /**
+ * \brief Put variable into MATLAB engine workspace
+ */
+  napi_value put_variable(napi_env env, napi_value jsname, napi_value jsvalue);
+
+  /**
+ * \brief Put variable into MATLAB engine workspace
+ */
+  void put_variable(napi_env env, MatlabMxArray &array);
 
   /**
  * \brief Put variable into MATLAB engine workspace
@@ -117,7 +131,7 @@ private:
   };
 
   static std::map<double, MATLAB_ENGINES> sessions;
-  
+
   double id_; // MATLAB engine session id
   Engine *ep_;
   std::string output;

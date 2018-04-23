@@ -8,7 +8,14 @@ typedef std::unique_ptr<mxArray, decltype(mxDestroyArray) *> managedMxArray;
 
 napi_ref MatlabMxArray::constructor;
 
-MatlabMxArray::MatlabMxArray() : env_(nullptr), wrapper_(nullptr), array_(nullptr) {}
+MatlabMxArray::MatlabMxArray(napi_env env, napi_value jsthis)
+    : env_(env), wrapper_(nullptr), array_(nullptr)
+{
+  // Wraps the new native instance in a JavaScript object.
+  napi_status status = napi_wrap(env, jsthis, reinterpret_cast<void *>(this),
+                     MatlabMxArray::Destructor, nullptr, &wrapper_);
+  assert(status == napi_ok);
+}
 
 MatlabMxArray::~MatlabMxArray()
 {
@@ -69,7 +76,7 @@ napi_value MatlabMxArray::Init(napi_env env, napi_value exports)
 
   //
   napi_value cons;
-  status = napi_define_class(env, "MatlabMxArray", NAPI_AUTO_LENGTH, MatlabMxArray::create,
+  status = napi_define_class(env, "MatlabMxArray", NAPI_AUTO_LENGTH, MatlabMxArray::Create,
                              nullptr, dim(properties), properties, &cons);
   assert(status == napi_ok);
 
@@ -98,13 +105,7 @@ napi_value MatlabMxArray::Create(napi_env env, napi_callback_info info)
   if (target != nullptr) // Invoked as constructor: `new MatlabMxArray(...)`
   {
     // instantiate new class object
-    MatlabMxArray *obj = new MatlabMxArray();
-    obj->env_ = env; // setremember object's environment
-
-    // Wraps the new native instance in a JavaScript object.
-    status = napi_wrap(env, prhs.jsthis, reinterpret_cast<void *>(obj),
-                       MatlabMxArray::Destructor, nullptr, &obj->wrapper_);
-    assert(status == napi_ok);
+    MatlabMxArray *obj = new MatlabMxArray(env, prhs.jsthis);
 
     // if source napi_value given, populate
     if (prhs.argv.size())
@@ -127,9 +128,24 @@ napi_value MatlabMxArray::Create(napi_env env, napi_callback_info info)
   }
 }
 
+MatlabMxArray *MatlabMxArray::Create(napi_env env, napi_value target)
+{
+  // instantiate new class object
+  MatlabMxArray *obj = new MatlabMxArray(env, target);
+
+  return obj;
+}
+
 const mxArray *MatlabMxArray::getMxArray()
 {
   return array_;
+}
+
+// data = mx_array.getData() Get mxArray content as a JavaScript data type
+napi_value MatlabMxArray::getData(napi_env env) // Get mxArray content as a JavaScript data type
+{
+  // retrieve the input arguments
+  return to_value(env, array_);
 }
 
 // data = mx_array.getData() Get mxArray content as a JavaScript data type
@@ -156,34 +172,35 @@ bool MatlabMxArray::setMxArray(mxArray *array) // will be responsible to destroy
   return false;
 }
 
-// data = mx_array.setData(value) Set mxArray content from JavaScript object
-napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info)
+napi_status MatlabMxArray::setData(napi_env env, napi_value value)
 {
-  napi_status status;
-
-  // retrieve the input arguments
-  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 1, 1);
-  if (!prhs.obj)
-    return nullptr;
-
   // mxArray cannot have anything referencing to it
-  if (prhs.obj->arraybuffers_.size())
+  if (arraybuffers_.size())
   {
-    status = napi_throw_error(env, "", "Cannot assign new data to the MxArray instance as it is currently referenced by at least one Node.js value.");
-    assert(status == napi_ok);
-    return nullptr;
+    napi_throw_error(env, "", "Cannot assign new data to the MxArray instance as it is currently referenced by at least one Node.js value.");
+    return napi_generic_failure;
   };
 
   // convert the given Node.js value to mxArray
-  mxArray *new_array = prhs.obj->from_value(env, prhs.argv[0]);
+  mxArray *new_array = from_value(env, value);
 
   // destroy previous array
-  if (prhs.obj->array_)
-    mxDestroyArray(prhs.obj->array_);
+  if (array_)
+    mxDestroyArray(array_);
 
   // assign the new array
-  prhs.obj->array_ = new_array;
+  array_ = new_array;
 
+  return napi_ok;
+}
+
+// data = mx_array.setData(value) Set mxArray content from JavaScript object
+napi_value MatlabMxArray::setData(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabMxArray>(env, info, 1, 1);
+  if (prhs.obj)
+    prhs.obj->setData(env, prhs.argv[0]);
   return nullptr;
 }
 

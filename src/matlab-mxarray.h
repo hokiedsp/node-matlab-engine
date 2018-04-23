@@ -38,12 +38,36 @@ public:
  * \returns napi_value representing the JavaScript object returned, which in 
  *          this case is the constructed object.
  */
+  static MatlabMxArray *Create(napi_env env, napi_value jsthis);
+
   static napi_value Create(napi_env env, napi_callback_info info);
 
   static void Destructor(napi_env env, void *nativeObject, void *finalize_hint);
 
+  /**
+   * \brief Constructor
+   * 
+   * Create a new MATLAB mxArray wrapper if none exists and returns the pointer
+   * to the engine session as the node.js external data object. Multiple 
+   * sessions of MATLAB could be opened by using different \ref id.
+   * 
+   * \param[in] session id number to support multiple MATLAB sessions
+   */
+  explicit MatlabMxArray(napi_env env, napi_value jsthis);
+
+  /**
+   * \brief Destrctor
+   * 
+   * Release the assigned MATLAB session
+   */
+  ~MatlabMxArray();
+
+
   bool setMxArray(mxArray *array); // will be responsible to destroy array
   const mxArray *getMxArray();     //
+
+  napi_value getData(napi_env env); // Get mxArray content as a JavaScript data type
+  napi_status setData(napi_env env, napi_value data); // Set mxArray content from JavaScript object
   
 private:
   mxArray *array_; // data array
@@ -51,24 +75,6 @@ private:
 
   napi_env env_;
   napi_ref wrapper_;
-
-  /**
- * \brief Constructor
- * 
- * Create a new MATLAB mxArray wrapper if none exists and returns the pointer
- * to the engine session as the node.js external data object. Multiple 
- * sessions of MATLAB could be opened by using different \ref id.
- * 
- * \param[in] session id number to support multiple MATLAB sessions
- */
-  explicit MatlabMxArray();
-
-  /**
- * \brief Destrctor
- * 
- * Release the assigned MATLAB session
- */
-  ~MatlabMxArray();
 
   /**
  * \brief Evluates MATLAB expression

@@ -1,5 +1,4 @@
 #include "matlab-engine.h"
-#include "matlab-mxarray.h"
 #include "napi_utils.h"
 
 #include <stdexcept>
@@ -11,8 +10,8 @@ std::ofstream os("test.txt", std::fstream::out);
 napi_ref MatlabEngine::constructor;
 std::map<double, MatlabEngine::MATLAB_ENGINES> MatlabEngine::sessions;
 
-MatlabEngine::MatlabEngine(double id)
-    : id_(id), env_(nullptr), wrapper_(nullptr)
+MatlabEngine::MatlabEngine(napi_env env, napi_value jsthis, double id)
+    : id_(id), env_(env), wrapper_(nullptr)
 {
   os << "MatlabEngine::MatlabEngine" << std::endl;
   try
@@ -33,6 +32,11 @@ MatlabEngine::MatlabEngine(double id)
 
     // append to the session
     MatlabEngine::sessions.emplace(std::make_pair(id_, MatlabEngine::MATLAB_ENGINES{ep_, 1}));
+
+    // Wraps the new native instance in a JavaScript object.
+    napi_status status = napi_wrap(env, jsthis, this, MatlabEngine::Destructor, nullptr, &wrapper_);
+    assert(status == napi_ok);
+
   }
 }
 
@@ -124,17 +128,12 @@ napi_value MatlabEngine::create(napi_env env, napi_callback_info info)
     MatlabEngine *obj;
     try
     {
-      obj = new MatlabEngine(id);
+      obj = new MatlabEngine(env, prhs.jsthis, id);
     }
     catch (...)
     {
       napi_throw_error(env, "", "Failed to instantiate MatlabEngine");
     }
-    obj->env_ = env; // setremember object's environment
-
-    // Wraps the new native instance in a JavaScript object.
-    status = napi_wrap(env, prhs.jsthis, obj, MatlabEngine::Destructor, nullptr, &obj->wrapper_);
-    assert(status == napi_ok);
 
     return prhs.jsthis;
   }
@@ -218,28 +217,26 @@ napi_value MatlabEngine::evaluate(napi_env env, napi_callback_info info)
 napi_value MatlabEngine::get_variable_value(napi_env env, napi_callback_info info)
 {
   napi_value array = MatlabEngine::get_variable(env,info);
+  if (!array)
+    return array;
+
   // grab the class instance if possible. Otherwise, obj=null
-  MxArray *obj(nullptr);
+  MatlabMxArray *obj(nullptr);
   napi_unwrap(env, array, reinterpret_cast<void **>(&obj));
-  napi_value value = obj->getMxArray();
-  MxArray::Destructor(obj);
+  napi_value value = obj->getData(env);
+  delete obj;
   return value;
 }
 
-// val = getVariable(name) returns mxArray-wrapper object
-napi_value MatlabEngine::get_variable(napi_env env, napi_callback_info info)
+napi_value MatlabEngine::get_variable(napi_env env, napi_value jsname)
 {
   napi_status status;
 
-  // retrieve the input arguments
-  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
-  if (!prhs.obj) return nullptr;
-
   // create expression string
-  std::string name = napi_get_value_string_utf8(env, prhs.argv[0]);
+  std::string name = napi_get_value_string_utf8(env, jsname);
 
   // get the variable from MATLAB
-  mxArray *val = engGetVariable(prhs.obj->ep_, name.c_str());
+  mxArray *val = engGetVariable(ep_, name.c_str());
   assert(val != nullptr);
 
   // create mxarray object and return it...
@@ -260,6 +257,52 @@ napi_value MatlabEngine::get_variable(napi_env env, napi_callback_info info)
   return instance;
 }
 
+// val = getVariable(name) returns mxArray-wrapper object
+napi_value MatlabEngine::get_variable(napi_env env, napi_callback_info info)
+{
+  // retrieve the input arguments
+  auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 1, 1);
+  if (!prhs.obj) return nullptr;
+
+  return prhs.obj->get_variable(env, prhs.argv[0]);
+}
+
+void MatlabEngine::put_variable(napi_env env, MatlabMxArray &var)
+{
+  // get the variable from MATLAB
+  assert(!engPutVariable(ep_, name.c_str(), var.getMxArray()));
+}
+
+napi_value MatlabEngine::put_variable(napi_env env, napi_value jsname, napi_value jsvalue)
+{
+  napi_status status;
+
+  // get variable name
+  std::string name = napi_get_value_string_utf8(env, jsname);
+
+  // get mxArray variable value
+  napi_value var_value;
+  status = napi_get_reference_value(env, MatlabMxArray::constructor, &var_value);
+  bool ok;
+  status = napi_instanceof(env, jsvalue, var_value, &ok);
+  assert(status == napi_ok);
+  if (!ok)
+  {
+    napi_throw_type_error(env, "", "2nd argument must be a MxArray object");
+    return nullptr;
+  }
+
+  MatlabMxArray *var;
+  status = napi_unwrap(env, jsvalue, reinterpret_cast<void **>(&var));
+  assert(status == napi_ok);
+
+  // get the variable from MATLAB
+  const mxArray *data = var->getMxArray();
+  assert(!engPutVariable(ep_, name.c_str(), var->getMxArray()));
+
+  return nullptr;
+}
+
 // obj.putVariable(name, val) place the given node.js mxArray object onto MATLAB
 // workspace (values will not be synced)
 napi_value MatlabEngine::put_variable_value(napi_env env, napi_callback_info info)
@@ -269,44 +312,23 @@ napi_value MatlabEngine::put_variable_value(napi_env env, napi_callback_info inf
   if (!prhs.obj) return nullptr;
 
   // create new MxArray object
-  napi_value array = MxArray::Create(env,prhs.argv[1]);
+  MatlabMxArray array(env, prhs.argv[1]);
 
   // put the variable
   prhs.obj->put_variable(env, array);
+
+  return nullptr;
 }
 
 // obj.putVariable(name, val) place the given node.js mxArray object onto MATLAB
 // workspace (values will not be synced)
 napi_value MatlabEngine::put_variable(napi_env env, napi_callback_info info)
 {
-  napi_status status;
-
   // retrieve the input arguments
   auto prhs = napi_get_cb_info<MatlabEngine>(env, info, 2, 2);
   if (!prhs.obj) return nullptr;
 
-  // get variable name
-  std::string name = napi_get_value_string_utf8(env, prhs.argv[0]);
-
-  // get mxArray variable value
-  napi_value var_value;
-  status = napi_get_reference_value(env, MatlabMxArray::constructor, &var_value);
-  bool ok;
-  status = napi_instanceof(env, prhs.argv[1], var_value, &ok);
-  assert(status == napi_ok);
-  if (!ok)
-  {
-    napi_throw_type_error(env, "", "2nd argument must be a MxArray object");
-    return nullptr;
-  }
-
-  MatlabMxArray *var;
-  status = napi_unwrap(env, prhs.argv[1], reinterpret_cast<void **>(&var));
-  assert(status == napi_ok);
-
-  // get the variable from MATLAB
-  const mxArray *data = var->getMxArray();
-  assert(!engPutVariable(prhs.obj->ep_, name.c_str(), var->getMxArray()));
+  prhs.obj->put_variable(env, prhs.argv[0], prhs.argv[1]);
 
   return nullptr;
 }
@@ -321,7 +343,7 @@ napi_value MatlabEngine::get_visible(napi_env env, napi_callback_info info)
   if (!prhs.obj) return nullptr;
 
   // get the variable from MATLAB
-  bool tf;
+  bool tf(false);
   assert(!engGetVisible(prhs.obj->ep_, &tf));
 
   // make Node.js Boolean object
