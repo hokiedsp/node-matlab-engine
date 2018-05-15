@@ -153,15 +153,20 @@ function(FindNodePackage dir ver pkg)
     
   message ("Looking for Node.js package: ${pkg}")
 
-  # recursive search of node_modules for the requested package
-  set (searchdirs_ ${CMAKE_CURRENT_SOURCE_DIR})
-  while (searchdirs_ AND NOT dir_)
-    list(GET searchdirs_ 0 basedir_ )
-    list(REMOVE_AT searchdirs_ 0)
-    file(GLOB_RECURSE dir_ FOLLOW_SYMLINKS "${basedir_}/node_modules/${pkg}/package.json")
-    if (NOT dir_)
-      file(GLOB subdirs_ FOLLOW_SYMLINKS LIST_DIRECTORIES true "${basedir_}/node_modules/*")
-      list(APPEND searchdirs_ ${subdirs_})
+  # search of node_modules for the requested package
+  set (basedir_ ${CMAKE_CURRENT_SOURCE_DIR})
+  file(GLOB dir_ FOLLOW_SYMLINKS "${basedir_}/node_modules/${pkg}/package.json")
+  while (basedir_ AND NOT dir_)
+    # go up 2 directories to the parent module
+    get_filename_component(basedir_ ${basedir_} DIRECTORY)
+    get_filename_component(basedir_ ${basedir_} DIRECTORY)
+
+    # stop at the root module
+    if (basedir_ AND IS_DIRECTORY "${basedir_}/node_modules")
+      # check parent's node_modules
+      file(GLOB dir_ FOLLOW_SYMLINKS "${basedir_}/node_modules/${pkg}/package.json")
+    else()
+      unset(basedir_)
     endif()
   endwhile()
 
@@ -171,7 +176,7 @@ function(FindNodePackage dir ver pkg)
     set(${dir} ${dir_} PARENT_SCOPE)
     
     # check version
-    execute_process(COMMAND ${NPM} ${NPM_ARGS} list ${pkg} OUTPUT_VARIABLE list_output WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    execute_process(COMMAND ${NPM} ${NPM_ARGS} list ${pkg} OUTPUT_VARIABLE list_output WORKING_DIRECTORY ${basedir_})
     if(list_output MATCHES "${pkg}@([0-9]+[.][0-9]+[.][0-9]+(rc[0-9]+|-beta[.][0-9]+)?)")
       set(${ver} ${CMAKE_MATCH_1} PARENT_SCOPE)
     endif()
@@ -210,7 +215,7 @@ if (NOT NodeJS_RUNTIME_URL) # Auto-detect runtime::electron > nw > node
       if (NOT NodeJS_RUNTIME_VERSION)
         set(NodeJS_RUNTIME_VERSION ${NodeJS_VERSION})
       endif()
-      message("No external runtime found. Use node v${ver_}")
+      message("No external runtime found. Use node v${NodeJS_VERSION}")
     endif()
   endif()
 elseif (NOT NodeJS_RUNTIME_VERSION) # Auto-detect version
