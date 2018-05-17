@@ -1,16 +1,29 @@
 "use strict";
 
-module.exports = require("bindings")("src/addon.node");
+const which = require('which');
+const path = require('path');
 
-// let lib = require("./lib");
+// find MATLAB executable
+let matlab_exe;
+try {
+  matlab_exe = which.sync('matlab');
+} catch {throw 'MATLAB executable not found.';}
 
-// let _ = require("lodash"); let ext = require("./ext"); let Bluebird =
-// require("bluebird"); let debug = require("debug")("af");
+// get the directory
+let matlab_dir = path.dirname(matlab_exe);
 
-// let matlabEngine = null;
+// specific for Windows version to get to the actual bin directory
+if (process.platform === 'win32') { // go to win64 subdirectory
+  matlab_dir = path.join(matlab_dir, 'win64');
+  const fs = require('fs');
+  try {
+    fs.accessSync(matlab_dir, fs.constants.R_OK)
+  } catch {throw 'MATLAB bin folder not found.';}
 
-// let entry = module.exports = function () {
-//   let ml = matlabEngine || (matlabEngine = require("bindings")("./build/src/addon.node"));
-//   // if (!af.__extended) {     ext(af);     af.__extended = true; }
-//   return ml;
-// };
+  if (process.env.PATH.search(matlab_dir) < 0) {
+    // add only if the path is not already included
+    process.env.PATH += path.delimiter + matlab_dir;
+  }
+}
+
+module.exports = require("bindings")("addon.node");
