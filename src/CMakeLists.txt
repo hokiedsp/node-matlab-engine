@@ -2,7 +2,11 @@
 add_library(${PROJECT_NAME} SHARED binding.cpp matlab-engine.cpp matlab-mxarray.cpp)
 
 # Gives our library file a .node extension without any "lib" prefix
-set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
+set_target_properties(${PROJECT_NAME} PROPERTIES 
+  PREFIX "" SUFFIX ".node"
+  RUNTIME_OUTPUT_DIRECTORY_DEBUG   ${CMAKE_BINARY_DIR}/Debug
+  RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+)
 
 # Essential include files to build a node addon,
 # You should add this line in every CMake.js based project
