@@ -17,8 +17,9 @@
   "main": "index.js",
   "scripts": {
     "install": "ncmake rebuild",
+    "debug_install": "ncmake -d rebuild",
     "clean": "ncmake distclean",
-    "test": "node ./test/test.js"
+    "test": "node --expose-gc ./test/test.js"
   },
   "dependencies": {
     "bindings": "^1.3.0",
