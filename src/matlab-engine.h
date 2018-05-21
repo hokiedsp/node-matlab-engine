@@ -92,17 +92,17 @@ private:
   /**
  * \brief Put variable into MATLAB engine workspace
  */
+  static napi_value put_variable_value(napi_env env, napi_callback_info info);
+
+  /**
+ * \brief Put variable into MATLAB engine workspace
+ */
   napi_value put_variable(napi_env env, napi_value jsname, napi_value jsvalue);
 
   /**
  * \brief Put variable into MATLAB engine workspace
  */
-  void put_variable(napi_env env, MatlabMxArray &array);
-
-  /**
- * \brief Put variable into MATLAB engine workspace
- */
-  static napi_value put_variable_value(napi_env env, napi_callback_info info);
+  void put_variable(napi_env env, const std::string &name, MatlabMxArray &array);
 
   /**
  * \brief Determine visibility of MATLAB engine session
