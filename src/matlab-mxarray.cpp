@@ -11,10 +11,12 @@ napi_ref MatlabMxArray::constructor;
 MatlabMxArray::MatlabMxArray(napi_env env, napi_value jsthis)
     : env_(env), wrapper_(nullptr), array_(nullptr)
 {
-  // Wraps the new native instance in a JavaScript object.
-  napi_status status = napi_wrap(env, jsthis, reinterpret_cast<void *>(this),
-                     MatlabMxArray::Destructor, nullptr, &wrapper_);
-  assert(status == napi_ok);
+  if (jsthis)
+  { // Wraps the new native instance in a JavaScript object.
+    napi_status status = napi_wrap(env, jsthis, reinterpret_cast<void *>(this),
+                                   MatlabMxArray::Destructor, nullptr, &wrapper_);
+    assert(status == napi_ok);
+  }
 }
 
 MatlabMxArray::~MatlabMxArray()
@@ -1137,7 +1139,7 @@ napi_value MatlabMxArray::setDimensions(napi_env env, napi_callback_info info)
     return nullptr;
 
   uint32_t ndims;
-  
+
   // get new dimensions
   status = napi_get_array_length(env, prhs.argv[0], &ndims);
   if (status != napi_ok)
@@ -1158,8 +1160,8 @@ napi_value MatlabMxArray::setDimensions(napi_env env, napi_callback_info info)
     status = napi_get_element(env, prhs.argv[0], n, &elem);
 
     uint32_t val;
-    status = napi_get_value_uint32(env,elem, &val);
-    if (status!=napi_ok)
+    status = napi_get_value_uint32(env, elem, &val);
+    if (status != napi_ok)
     {
       napi_throw_type_error(env, "", "Dimensions must be non-negative integers.");
       return nullptr;
@@ -1173,7 +1175,7 @@ napi_value MatlabMxArray::setDimensions(napi_env env, napi_callback_info info)
   }
 
   // validate size
-  if (nelems!=mxGetNumberOfElements(prhs.obj->array_))
+  if (nelems != mxGetNumberOfElements(prhs.obj->array_))
   {
     napi_throw_type_error(env, "", "Dimensions must yield the number of elements of the array.");
     return nullptr;

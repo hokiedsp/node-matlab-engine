@@ -1,14 +1,6 @@
+const matlab = require('../index.js');
 
-let add_matlab_to_path = require('../add_matlab_to_path');
-if (add_matlab_to_path())
-{
-  console.log('MATLAB is not found. Cannot run the app.');
-  return;
-}
-
-var matlab = require('bindings')('addon');
-
-console.log(matlab);
+console.log(matlab.Engine);
 
 var session = new matlab.Engine();
 console.log(session);
@@ -37,18 +29,26 @@ console.log( x.getDimensions());
 xdata[0] = 4;
 console.log( x.getData() ); // 5
 
+x = session.getVariableValue("x");
+console.log(x);
+
 let y = new matlab.MxArray();
 y.setData("test string");
 session.putVariable("y", y);
-console.log( session.getVariable("y").getData() ); // 5
+console.log( session.getVariableValue("y") ); // 5
+
+session.putVariableValue("y", "test string assigning by value");
+console.log( session.getVariableValue("y") ); // 5
 
 session.evaluate("s = struct('x',x,'y',y)");
-console.log( session.getVariable("s").getData() ); // 5
+console.log( session.getVariableValue("s") ); // 5
 
-session.close();
-
-delete session;
 delete x;
+
+// session.close();
+console.log('Matlab closed');
+delete session;
+console.log('Matlab destroyed');
 
 function forceGC() {
   if (global.gc) {
