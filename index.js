@@ -9,11 +9,11 @@ try {
   matlab_exe = which.sync('matlab');
 } catch {throw 'MATLAB executable not found.';}
 
-// get the directory
-let matlab_dir = path.dirname(matlab_exe);
-
 // specific for Windows version to get to the actual bin directory
 if (process.platform === 'win32') { // go to win64 subdirectory
+  // get the directory
+  let matlab_dir = path.dirname(matlab_exe);
+
   matlab_dir = path.join(matlab_dir, 'win64');
   const fs = require('fs');
   try {
@@ -23,6 +23,7 @@ if (process.platform === 'win32') { // go to win64 subdirectory
   if (process.env.PATH.search(matlab_dir) < 0) {
     // add only if the path is not already included
     process.env.PATH += path.delimiter + matlab_dir;
+    console.log('"added "' + matlab_dir + '" to path.');
   }
 }
 
