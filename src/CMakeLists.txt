@@ -19,5 +19,3 @@ target_link_libraries(${PROJECT_NAME} ${NodeJS_LIBRARIES} ${Matlab_ENG_LIBRARY} 
 if (MSVC)
   target_compile_definitions(${PROJECT_NAME} PRIVATE _SCL_SECURE_NO_WARNINGS)
 endif()
-
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_BINARY_DIR})
