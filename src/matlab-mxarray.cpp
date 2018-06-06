@@ -36,10 +36,6 @@ void MatlabMxArray::Destructor(napi_env env, void *nativeObject, void * /*finali
     name, 0, func, 0, 0, 0, napi_default, 0 \
   }
 
-template <typename T, int N>
-char (&dim_helper(T (&)[N]))[N];
-#define dim(x) (sizeof(dim_helper(x)))
-
 napi_value MatlabMxArray::Init(napi_env env, napi_value exports)
 {
   napi_status status;

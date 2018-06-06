@@ -1,5 +1,5 @@
-#include "matlab-engine.h"
-#include "matlab-mxarray.h"
+#include "matlab-engine-js.h"
+// #include "matlab-mxarray.h"
 
 #include <node_api.h>
 
@@ -23,8 +23,8 @@ napi_value Init(napi_env env, napi_value exports)
   // status = napi_define_properties(env, module, sizeof(desc) / sizeof(*desc), desc);
   // assert(status == napi_ok);
 
-  MatlabEngine::Init(env, exports);
-  MatlabMxArray::Init(env, exports);
+  MatlabEngineJS::Init(env, exports);
+  // MatlabMxArray::Init(env, exports);
   return exports;
 }
 

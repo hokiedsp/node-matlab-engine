@@ -1,141 +1,200 @@
-// defines an native addon node.js object to interface with MATLAB engine
-//    .evaluate(expr)
-//    .setVariable(value)
-//    .putVariable
-//    .getVariable
-//    .setOutputBuffer
-
 #pragma once
 
-#include "matlab-mxarray.h"
-
 #include <engine.h>
-#include <node_api.h>
+#include <mex.h>
 
-#include <map>
-#include <string>
+#include <stdexcept>
+#include <mutex>
 
 class MatlabEngine
 {
 public:
-  static napi_value Init(napi_env env, napi_value exports);
-
-  static void Destructor(napi_env env, void *nativeObject, void *finalize_hint);
-
-  static napi_ref constructor;
-
-private:
   /**
- * \brief Constructor
+ * \brief   Constructor
  * 
- * Create a new MATLAB Engine session if none exists and returns the pointer
- * to the engine session as the node.js external data object. Multiple 
- * sessions of MATLAB could be opened by using different \ref id.
- * 
- * \param[in] session id number to support multiple MATLAB sessions
+ * \param[in] bufsz      Output buffer size (default: 256)
+ * \param[in] defer_open True to not open Matlab session immediately (default: false)
  */
-  explicit MatlabEngine(napi_env env, napi_value jsthis, double id_ = 0);
-
-  /**
- * \brief Destrctor
- * 
- * Release the assigned MATLAB session
- */
-  ~MatlabEngine();
-
-  /**
- * \brief Create new MatlabEngine object
- * 
- * \param[in] env  The environment that the API is invoked under.
- * \param[in] info The callback info passed into the callback function.
- * \returns napi_value representing the JavaScript object returned, which in 
- *          this case is the constructed object.
- */
-  static napi_value create(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Close existing session and destroys the native MatlabEngine object
- * 
- * \param[in] env  The environment that the API is invoked under.
- * \param[in] info The callback info passed into the callback function.
- * \returns napi_value representing the JavaScript object returned, which in 
- *          this case is the constructed object.
- */
-  static napi_value close(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Evluates MATLAB expression
- */
-  static napi_value evaluate(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Copy variable from MATLAB engine workspace
- * 
- * An object factory function
- */
-  static napi_value get_variable(napi_env env, napi_callback_info info);
-
-  napi_value get_variable(napi_env env, napi_value jsname);
-
-  /**
- * \brief Copy variable from MATLAB engine workspace
- * 
- * An object factory function
- */
-  static napi_value get_variable_value(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Put variable into MATLAB engine workspace
- */
-  static napi_value put_variable(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Put variable into MATLAB engine workspace
- */
-  static napi_value put_variable_value(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Put variable into MATLAB engine workspace
- */
-  napi_value put_variable(napi_env env, napi_value jsname, napi_value jsvalue);
-
-  /**
- * \brief Put variable into MATLAB engine workspace
- */
-  void put_variable(napi_env env, const std::string &name, MatlabMxArray &array);
-
-  /**
- * \brief Determine visibility of MATLAB engine session
- */
-  static napi_value get_visible(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Show or hide MATLAB engine session
- */
-  static napi_value set_visible(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Specify buffer for MATLAB output
- */
-  static napi_value set_output_buffer(napi_env env, napi_callback_info info);
-
-  /**
- * \brief Retrieve the output buffer from MATLAB
- */
-  static napi_value get_output_buffer(napi_env env, napi_callback_info info);
-
-  struct MATLAB_ENGINES
+  MatlabEngine(const size_t bufsz = 256, bool defer_open = false) : ep(nullptr), bufena(true)
   {
-    Engine *ep;
-    int count;
-  };
+    if (bufsz == 0)
+      throw std::runtime_error("Buffer size must be positive.");
 
-  static std::map<double, MATLAB_ENGINES> sessions;
+    buf.reserve(bufsz);
 
-  double id_; // MATLAB engine session id
-  Engine *ep_;
-  std::string output;
+    if (!defer_open)
+      open(0);
+  }
 
-  napi_env env_;
-  napi_ref wrapper_;
+  // disable copy & move constructors and assignment operators
+  MatlabEngine(const MatlabEngine &) = delete;
+  MatlabEngine(MatlabEngine &&) = delete;
+  MatlabEngine &operator=(const MatlabEngine &) = delete;
+  MatlabEngine &operator=(MatlabEngine &&) = delete;
+
+  /**
+ * \brief Destructor
+ */
+  ~MatlabEngine()
+  {
+    close();
+  }
+
+  /**
+ * \brief Open Matlab session
+ * 
+ * If already open, does nothing
+ * 
+ * \param[in] bufsz Output buffer size (0 to keep the previous value)
+ */
+  void open(const size_t bufsz = 0)
+  {
+    if (ep)
+      return;
+
+    if (!(ep = engOpen("")))
+      throw std::runtime_error("Failed to open MATLAB.");
+
+    if (bufsz > 0)
+      setBufferSize(bufsz);
+  }
+
+  /**
+   * \brief Close Matlab
+   */
+  void close()
+  {
+    if (ep)
+    {
+      engClose(ep);
+      ep = nullptr;
+    }
+  }
+
+  /**
+   * \brief Returns true if Matlab session is open.
+   */
+  bool isopen() { return ep; }
+
+  /**
+   * \brief Evaluate expression in MATLAB
+   * 
+   * \param[in] expr Expression to evalaute in Matlab
+   */
+  const std::string &eval(const std::string &expr)
+  {
+    std::lock_guard<std::mutex> guard(m);
+    if (engEvalString(ep, expr.c_str()) > 0)
+      throw std::runtime_error("MATLAB is not open.");
+    if (bufena)
+      engOutputBuffer(ep, buf.data(), (int)buf.size());
+
+    return buf;
+  }
+
+  /**
+   * \brief Get a variable from MATLAB
+   * 
+   * \param[in] name Name of the variable in Matlab
+   */
+  mxArray *getVariable(std::string name)
+  {
+    if (!ep)
+      throw std::runtime_error("MATLAB is not open.");
+
+    mxArray *rval;
+    std::lock_guard<std::mutex> guard(m);
+    if (!(rval = engGetVariable(ep, name.c_str())))
+      throw std::runtime_error("Invalid variable name.");
+    return rval;
+  }
+
+  /**
+   * \brief Put variable into MATLAB
+   * 
+   * \param[in] name Name of the variable in MATLAB
+   * \param[in] value Value of the variable
+   */
+  void putVariable(const std::string &name, mxArray *value)
+  {
+    if (!ep)
+      throw std::runtime_error("MATLAB is not open.");
+
+    std::lock_guard<std::mutex> guard(m);
+    if (engPutVariable(ep, name.c_str(), value))
+      throw std::runtime_error("Invalid variable name.");
+  }
+
+  /**
+   * \brief Determine visibility of MATLAB session
+   */
+  bool getVisible()
+  {
+    if (!ep)
+      throw std::runtime_error("MATLAB is not open.");
+
+    bool rval;
+    std::lock_guard<std::mutex> guard(m);
+    engGetVisible(ep, &rval);
+    return rval;
+  }
+
+  /**
+   * \brief Show or hide MATLAB session
+   * 
+   * \param[in] tf True to show, false to hide
+   */
+  void setVisible(const bool tf)
+  {
+    if (!ep)
+      throw std::runtime_error("MATLAB is not open.");
+    std::lock_guard<std::mutex> guard(m);
+    engSetVisible(ep, (bool)tf);
+  }
+
+  /**
+   * \brief True if eval() returns its output
+   */
+  bool getBufferEnabled() const { return bufena; }
+
+  /**
+   * \brief Set output handling of eval()
+   * 
+   * \param[in] tf True to make eval() returns its printed output; false to ignore output
+   */
+  void setBufferEnabled(const bool tf)
+  {
+    bufena = tf;
+    if (!tf) // if disabled, clear current buffer content
+      buf.clear();
+  }
+
+  /**
+   * \brief True if eval() returns its output
+   */
+  size_t getBufferSize() const { return buf.capacity(); }
+
+  /**
+   * \brief Set eval output buffer size
+   * 
+   * \param[in] sz   Buffer size (if 0, unchanged)
+   */
+  void setBufferSize(const size_t sz)
+  {
+    if (sz)
+      buf.reserve(sz);
+  }
+
+  /**
+   * \brief Return current buffer content
+   * 
+   * \returns Current buffer content
+   */
+  const std::string &getBuffer() { return buf; }
+
+  Engine *ep;
+  std::mutex m;
+
+  bool bufena;
+  std::string buf;
 };

@@ -55,6 +55,10 @@
     "xlocinfo": "cpp",
     "xlocnum": "cpp",
     "xmemory": "cpp",
-    "xstddef": "cpp"
+    "xstddef": "cpp",
+    "mutex": "cpp",
+    "thread": "cpp",
+    "chrono": "cpp",
+    "ratio": "cpp"
   }
 }

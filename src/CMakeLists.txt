@@ -1,5 +1,5 @@
 # Build a shared library named after the project from the files in `src/`
-add_library(${PROJECT_NAME} SHARED binding.cpp matlab-engine.cpp matlab-mxarray.cpp)
+add_library(${PROJECT_NAME} SHARED binding.cpp matlab-engine-js.cpp)
 
 # Gives our library file a .node extension without any "lib" prefix
 set_target_properties(${PROJECT_NAME} PROPERTIES 
