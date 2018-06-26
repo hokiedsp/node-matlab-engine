@@ -7,8 +7,8 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug installation",
-      "args": ["install.js"]
+      "name": "Debug NPM Install",
+      "args": ["node-modules/node-cmake/lib/ncmake.js","rebuild"]
     },
     {
       "type": "node",
