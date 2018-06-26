@@ -155,7 +155,7 @@ function(FindNodePackage dir ver pkg)
 
   # search of node_modules for the requested package
   set (basedir_ ${CMAKE_CURRENT_SOURCE_DIR})
-  file(GLOB dir_ FOLLOW_SYMLINKS "${basedir_}/node_modules/${pkg}/package.json")
+  file(GLOB dir_ "${basedir_}/node_modules/${pkg}/package.json")
   while (basedir_ AND NOT dir_)
     # go up 2 directories to the parent module
     get_filename_component(basedir_ ${basedir_} DIRECTORY)
@@ -164,7 +164,7 @@ function(FindNodePackage dir ver pkg)
     # stop at the root module
     if (basedir_ AND IS_DIRECTORY "${basedir_}/node_modules")
       # check parent's node_modules
-      file(GLOB dir_ FOLLOW_SYMLINKS "${basedir_}/node_modules/${pkg}/package.json")
+      file(GLOB dir_ "${basedir_}/node_modules/${pkg}/package.json")
     else()
       unset(basedir_)
     endif()
